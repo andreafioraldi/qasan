@@ -1,0 +1,38 @@
+SRESET_WORLD_TEST := test/sreset_world/sreset_kernel/sreset_kernel
+
+.PHONY: sreset_world-tests
+sreset_world-tests: $(SRESET_WORLD_TEST:%=%-check-smt-mambo)
+sreset_world-tests: $(SRESET_WORLD_TEST:%=%-check-smt-p9-mambo)
+sreset_world-tests: $(SRESET_WORLD_TEST:%=%-check-mambo)
+sreset_world-tests: $(SRESET_WORLD_TEST:%=%-check-p9-mambo)
+
+boot-tests: sreset_world-tests
+check: sreset_world-tests
+
+$(SRESET_WORLD_TEST:%=%-check-smt-mambo): %-check-smt-mambo: % skiboot.lid
+	$(call Q , BOOT TEST , THREADS=2 ./test/sreset_world/run_mambo_sreset.sh , $@)
+
+$(SRESET_WORLD_TEST:%=%-check-smt-p9-mambo): %-check-smt-p9-mambo: % skiboot.lid
+	$(call Q , BOOT TEST , THREADS=2 ./test/sreset_world/run_mambo_p9_sreset.sh , $@)
+
+$(SRESET_WORLD_TEST:%=%-check-mambo): %-check-mambo: % skiboot.lid
+	$(call Q , BOOT TEST , ./test/sreset_world/run_mambo_sreset.sh, $@)
+
+$(SRESET_WORLD_TEST:%=%-check-p9-mambo): %-check-p9-mambo: % skiboot.lid
+	$(call Q , BOOT TEST , ./test/sreset_world/run_mambo_p9_sreset.sh, $@)
+
+test/sreset_world/sreset_kernel/sreset_kernel.o: test/sreset_world/sreset_kernel/sreset_kernel.S test/sreset_world/sreset_kernel/sreset_kernel.ld
+	$(call Q,CC, $(CC) -mbig-endian -m64 -c -MMD -o $@ $< ,$@)
+
+sreset_kernel_LDFLAGS=-m64 -Wl,--build-id=none -T test/sreset_world/sreset_kernel/sreset_kernel.ld -ffreestanding -nostdlib -Ttext=0x0 -mbig-endian -N
+
+-include $(wildcard test/sreset_world/sreset_kernel/*.d)
+
+test/sreset_world/sreset_kernel/sreset_kernel: test/sreset_world/sreset_kernel/sreset_kernel.o
+	$(call Q,LD, $(CC) $(sreset_kernel_LDFLAGS) -o $@ $^ , $@)
+
+clean: sreset_world-test-clean
+
+sreset_world-test-clean:
+	$(RM) -f test/sreset_world/sreset_kernel/sreset_kernel
+	$(RM) -f test/sreset_world/sreset_kernel/sreset_kernel.[od]

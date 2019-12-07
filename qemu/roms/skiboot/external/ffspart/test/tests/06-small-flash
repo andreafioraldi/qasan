@@ -1,0 +1,12 @@
+#! /bin/sh
+touch $DATA_DIR/$CUR_TEST.gen
+
+run_binary "./ffspart" "-s 0x100 -c 4 -i $DATA_DIR/$CUR_TEST.in -p $DATA_DIR/$CUR_TEST.gen"
+#Expect FFS_ERR_BAD_PART_SIZE because the flash is too small
+if [ "$?" -ne 108 ] ; then
+	fail_test
+fi
+
+diff_with_result
+
+pass_test

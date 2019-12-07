@@ -1,0 +1,36 @@
+Detailed partition information
+Name:
+PRESERVED (ID=01)
+
+Start       End         Actual    
+0x00000300  0x00000400  0x00000100
+
+Flags:
+PRESERVED [P]
+Detailed partition information
+Name:
+READONLY (ID=02)
+
+Start       End         Actual    
+0x00000400  0x00000500  0x00000100
+
+Flags:
+READONLY [R]
+Detailed partition information
+Name:
+REPROVISION (ID=03)
+
+Start       End         Actual    
+0x00000500  0x00000600  0x00000100
+
+Flags:
+REPROVISION [F]
+Detailed partition information
+Name:
+BACKUP (ID=04)
+
+Start       End         Actual    
+0x00000600  0x00000700  0x00000100
+
+Flags:
+BACKUP [B]

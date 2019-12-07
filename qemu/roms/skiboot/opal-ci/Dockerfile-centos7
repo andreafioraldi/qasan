@@ -1,0 +1,16 @@
+FROM centos:7
+RUN yum -y update && yum clean all
+RUN yum -y install wget curl xterm gcc git xz make diffutils findutils expect valgrind valgrind-devel ccache dtc openssl-devel
+RUN wget https://www.kernel.org/pub/tools/crosstool/files/bin/x86_64/4.8.0/x86_64-gcc-4.8.0-nolibc_powerpc64-linux.tar.xz
+RUN mkdir /opt/cross
+RUN tar -C /opt/cross -xf x86_64-gcc-4.8.0-nolibc_powerpc64-linux.tar.xz
+RUN curl -O http://public.dhe.ibm.com/software/server/powerfuncsim/p8/packages/v1.0-2/systemsim-p8-1.0-2.el7.x86_64.rpm 
+RUN yum install -y systemsim-p8-1.0-2.el7.x86_64.rpm
+RUN curl -O http://public.dhe.ibm.com/software/server/powerfuncsim/p9/packages/v1.0-0/systemsim-p9-1.0-0.el7.x86_64.rpm 
+RUN yum install -y systemsim-p9-1.0-0.el7.x86_64.rpm
+RUN yum install -y flex bison
+RUN curl -L https://github.com/dgibson/dtc/archive/v1.4.2.tar.gz|tar xfz -
+RUN (cd dtc-1.4.2; make PREFIX=/usr/local install)
+COPY . /build/
+WORKDIR /build
+ENTRYPOINT ./opal-ci/build-centos7.sh

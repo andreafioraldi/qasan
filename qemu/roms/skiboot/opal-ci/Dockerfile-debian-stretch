@@ -1,0 +1,13 @@
+FROM debian:stretch
+RUN apt-get update -qq
+RUN apt-get install -y gcc-powerpc64le-linux-gnu gcc ccache expect libssl-dev
+RUN apt-get install -y wget xterm curl device-tree-compiler
+RUN apt-get install -y gcc-arm-linux-gnueabi
+RUN apt-get install -y libtcl8.6
+RUN curl -O http://public.dhe.ibm.com/software/server/powerfuncsim/p9/packages/v1.0-0/systemsim-p9-1.0-0-trusty_amd64.deb
+RUN dpkg -i systemsim-p9-1.0-0-trusty_amd64.deb
+RUN apt-get -y install eatmydata
+RUN eatmydata apt-get -y install build-essential gcc python g++ pkg-config libz-dev libglib2.0-dev libpixman-1-dev libfdt-dev git libstdc++6 valgrind
+COPY . /build/
+WORKDIR /build
+ENTRYPOINT ./opal-ci/build-ubuntu-16.04.sh

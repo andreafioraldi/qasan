@@ -1,0 +1,18 @@
+# -*-Makefile-*-
+PHYS_MAP_TEST := hw/test/phys-map-test
+
+.PHONY : hw-phys-map-check
+hw-phys-map-check: $(PHYS_MAP_TEST:%=%-check)
+
+check: hw-phys-map-check
+
+$(PHYS_MAP_TEST:%=%-check) : %-check: %
+	$(call Q, RUN-TEST ,$(VALGRIND) $<, $<)
+
+$(PHYS_MAP_TEST) : % : %.c hw/phys-map.o
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) -O0 -g -I include -I . -o $@ $<, $<)
+
+clean: hw-phys-map-clean
+
+hw-phys-map-clean:
+	$(RM) -f hw/test/*.[od] $(PHYS_MAP_TEST)

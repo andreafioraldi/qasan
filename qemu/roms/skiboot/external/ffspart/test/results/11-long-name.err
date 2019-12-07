@@ -1,0 +1,2 @@
+WARNING: Long partition 'This_is_more_than_15_characters' name will get truncated
+WARNING: Long partition 'This_is_one_more' name will get truncated

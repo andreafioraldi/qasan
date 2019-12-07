@@ -1,0 +1,22 @@
+FROM ubuntu:trusty
+RUN sudo apt-get update -qq
+RUN sudo apt-get install -y software-properties-common
+RUN sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+RUN sudo apt-get update -qq
+RUN sudo apt-get install -y gcc-4.8 libstdc++6 valgrind expect xterm ccache expect device-tree-compiler libssl-dev
+RUN sudo apt-get install -y gcc-arm-linux-gnueabi gcc-powerpc64le-linux-gnu gcc
+RUN sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 50
+RUN sudo apt-get install -y wget curl
+RUN curl -O https://www.kernel.org/pub/tools/crosstool/files/bin/x86_64/4.8.0/x86_64-gcc-4.8.0-nolibc_powerpc64-linux.tar.xz
+RUN sudo mkdir /opt/cross
+RUN sudo tar -C /opt/cross -xf x86_64-gcc-4.8.0-nolibc_powerpc64-linux.tar.xz
+RUN curl -O ftp://public.dhe.ibm.com/software/server/powerfuncsim/p8/packages/v1.0-2/systemsim-p8_1.0-2_amd64.deb
+RUN sudo dpkg -i systemsim-p8_1.0-2_amd64.deb
+RUN apt-get install -y libtcl8.6
+RUN curl -O http://public.dhe.ibm.com/software/server/powerfuncsim/p9/packages/v1.0-0/systemsim-p9-1.0-0-trusty_amd64.deb
+RUN sudo dpkg -i systemsim-p9-1.0-0-trusty_amd64.deb
+RUN sudo apt-get -y install eatmydata
+RUN sudo eatmydata apt-get -y install build-essential gcc python g++ pkg-config libz-dev libglib2.0-dev libpixman-1-dev libfdt-dev git libstdc++6
+COPY . /build/
+WORKDIR /build
+ENTRYPOINT ./opal-ci/build-ubuntu-12.04.sh

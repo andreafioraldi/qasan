@@ -1,0 +1,15 @@
+#! /bin/sh
+
+touch $DATA_DIR/$CUR_TEST.gen
+
+run_binary "./ffspart" "-b -s 0x100 -c 10 -i $DATA_DIR/$CUR_TEST.in -p $DATA_DIR/$CUR_TEST.gen"
+#expect this error code, which is FFS_ERR_BAD_PART_BASE becase we're
+#going to have too many partitions for header to fit before the first
+#partition
+if [ "$?" -ne 107 ] ; then
+	fail_test
+fi
+
+diff_with_result
+
+pass_test

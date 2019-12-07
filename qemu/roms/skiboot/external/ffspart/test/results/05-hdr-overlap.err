@@ -1,0 +1,2 @@
+Adding partition 'THREE' would cause partition 'ONE' at 0x00000200 to overlap with the header
+Couldn't add entry 'THREE' 0x00000400 for 0x00000100
