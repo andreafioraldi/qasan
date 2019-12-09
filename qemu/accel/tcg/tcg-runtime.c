@@ -167,3 +167,93 @@ void HELPER(exit_atomic)(CPUArchState *env)
 {
     cpu_loop_exit_atomic(ENV_GET_CPU(env), GETPC());
 }
+
+/////////////////////////////////////////////////
+//                   QASAN
+/////////////////////////////////////////////////
+
+#include "qasan-qemu.h"
+
+void HELPER(qasan_load1)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  unsigned char k = *shadow_addr;
+  
+  if (k != 0 && ((addr & 7) + 1 > k))
+      __asan_report_load1(addr);
+
+}
+
+void HELPER(qasan_load2)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  unsigned char k = *shadow_addr;
+  
+  if (k != 0 && ((addr & 7) + 2 > k))
+      __asan_report_load2(addr);
+
+}
+
+void HELPER(qasan_load4)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  unsigned char k = *shadow_addr;
+  
+  if (k != 0 && ((addr & 7) + 4 > k))
+      __asan_report_load4(addr);
+
+}
+
+void HELPER(qasan_load8)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  
+  if (*shadow_addr) __asan_report_load8(addr);
+
+}
+
+void HELPER(qasan_store1)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  unsigned char k = *shadow_addr;
+  
+  if (k != 0 && ((addr & 7) + 1 > k))
+      __asan_report_store1(addr);
+
+}
+
+void HELPER(qasan_store2)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  unsigned char k = *shadow_addr;
+  
+  if (k != 0 && ((addr & 7) + 2 > k))
+      __asan_report_store2(addr);
+
+}
+
+void HELPER(qasan_store4)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  unsigned char k = *shadow_addr;
+  
+  if (k != 0 && ((addr & 7) + 4 > k))
+      __asan_report_store4(addr);
+
+}
+
+void HELPER(qasan_store8)(void * ptr, uint32_t off) {
+
+  abi_ulong addr = (abi_ulong)ptr + off;
+  unsigned char * shadow_addr = (addr >> 3) + ASAN_OFFSET;
+  
+  if (*shadow_addr) __asan_report_store8(addr);
+
+}

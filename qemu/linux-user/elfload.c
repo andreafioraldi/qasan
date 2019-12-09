@@ -2129,7 +2129,7 @@ unsigned long init_guest_space(unsigned long host_start,
             return (unsigned long)-1;
         }
     }
-
+    
     qemu_log_mask(CPU_LOG_PAGE, "Reserved 0x%lx bytes of guest address space\n", host_size);
 
     return aligned_start;

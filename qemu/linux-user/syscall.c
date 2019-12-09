@@ -112,6 +112,8 @@
 #include "qemu.h"
 #include "fd-trans.h"
 
+#include "qasan-qemu.h"
+
 #ifndef CLONE_IO
 #define CLONE_IO                0x80000000      /* Clone io context */
 #endif
@@ -11486,6 +11488,10 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
         /* PowerPC specific.  */
         return do_swapcontext(cpu_env, arg1, arg2, arg3);
 #endif
+
+    case QASAN_HYPER_NR:
+        /* QASAN hypercall */
+        return qasan_hypercall(arg1, arg2, arg3);
 
     default:
         qemu_log_mask(LOG_UNIMP, "Unsupported syscall: %d\n", num);

@@ -2705,6 +2705,12 @@ void tcg_gen_qemu_ld_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     memop = tcg_canonicalize_memop(memop, 0, 0);
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 0));
+    switch (memop) {
+        case MO_64: qasan_gen_load8(addr, idx); break;
+        case MO_32: qasan_gen_load4(addr, idx); break;
+        case MO_16: qasan_gen_load2(addr, idx); break;
+        case MO_8:  qasan_gen_load1(addr, idx); break;
+    }
     gen_ldst_i32(INDEX_op_qemu_ld_i32, val, addr, memop, idx);
 }
 
@@ -2714,6 +2720,12 @@ void tcg_gen_qemu_st_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     memop = tcg_canonicalize_memop(memop, 0, 1);
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 1));
+    switch (memop) {
+        case MO_64: qasan_gen_store8(addr, idx); break;
+        case MO_32: qasan_gen_store4(addr, idx); break;
+        case MO_16: qasan_gen_store2(addr, idx); break;
+        case MO_8:  qasan_gen_store1(addr, idx); break;
+    }
     gen_ldst_i32(INDEX_op_qemu_st_i32, val, addr, memop, idx);
 }
 
@@ -2733,6 +2745,12 @@ void tcg_gen_qemu_ld_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     memop = tcg_canonicalize_memop(memop, 1, 0);
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 0));
+    switch (memop) {
+        case MO_64: qasan_gen_load8(addr, idx); break;
+        case MO_32: qasan_gen_load4(addr, idx); break;
+        case MO_16: qasan_gen_load2(addr, idx); break;
+        case MO_8:  qasan_gen_load1(addr, idx); break;
+    }
     gen_ldst_i64(INDEX_op_qemu_ld_i64, val, addr, memop, idx);
 }
 
@@ -2747,6 +2765,14 @@ void tcg_gen_qemu_st_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     memop = tcg_canonicalize_memop(memop, 1, 1);
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 1));
+    
+    // fprintf(stderr, "mo = %x (%x %x %x %x), %d\n", memop, MO_64, MO_32, MO_16, MO_8, idx);
+    switch (memop) {
+        case MO_64: qasan_gen_store8(addr, idx); break;
+        case MO_32: qasan_gen_store4(addr, idx); break;
+        case MO_16: qasan_gen_store2(addr, idx); break;
+        case MO_8:  qasan_gen_store1(addr, idx); break;
+    }
     gen_ldst_i64(INDEX_op_qemu_st_i64, val, addr, memop, idx);
 }
 
