@@ -198,7 +198,6 @@ void HELPER(qasan_load4)(void * ptr, uint32_t off) {
 void HELPER(qasan_load8)(void * ptr, uint32_t off) {
 
   abi_ulong addr = (abi_ulong)ptr + off;
-  fprintf(stderr, "LOAD8 %p %d = %p\n", ptr, off, addr);
   __asan_load8(addr);
 
 }

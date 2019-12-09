@@ -6,7 +6,12 @@
 #include "../../include/qasan.h"
 #include "tcg.h"
 
-static abi_long qasan_hypercall(abi_long action, abi_long arg1, abi_long arg2)
+void *__asan_memcpy(void *dest, const void *src, size_t n);
+void *__asan_memset(void *s, int c, size_t n);
+
+static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
+                    abi_long arg2, abi_long arg3, abi_long arg4,
+                    abi_long arg5, abi_long arg6, abi_long arg7)
 {
     switch(action) {
         case QASAN_HYPER_MALLOC_USABLE_SIZE:
@@ -41,6 +46,12 @@ static abi_long qasan_hypercall(abi_long action, abi_long arg1, abi_long arg2)
             return r;
         }
         
+        case QASAN_HYPER_MEMCPY:
+        return __asan_memcpy(g2h(arg1), g2h(arg2), arg3);
+        
+        case QASAN_HYPER_MEMSET:
+        return __asan_memset(g2h(arg1), arg2, arg3);
+        
         default:
         QASAN_LOG("Invalid QASAN hyper action %d\n", action);
         abort();
@@ -58,55 +69,55 @@ void __asan_store2(void*);
 void __asan_store4(void*);
 void __asan_store8(void*);
 
-extern abi_ulong afl_start_code, afl_end_code;
+extern __thread int cur_block_is_good;
 
 // TODO collapse into a macro
 
 static void qasan_gen_load1(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_load1(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_load1(ptr, tcg_const_i32(off));
 
 }
 
 static void qasan_gen_load2(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_load2(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_load2(ptr, tcg_const_i32(off));
 
 }
 
 static void qasan_gen_load4(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_load4(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_load4(ptr, tcg_const_i32(off));
 
 }
 
 static void qasan_gen_load8(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_load8(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_load8(ptr, tcg_const_i32(off));
 
 }
 
 static void qasan_gen_store1(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_store1(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_store1(ptr, tcg_const_i32(off));
 
 }
 
 static void qasan_gen_store2(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_store2(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_store2(ptr, tcg_const_i32(off));
 
 }
 
 static void qasan_gen_store4(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_store4(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_store4(ptr, tcg_const_i32(off));
 
 }
 
 static void qasan_gen_store8(TCGv_ptr ptr, int off) {
   
-  gen_helper_qasan_store8(ptr, tcg_const_i32(off));
+  if (cur_block_is_good) gen_helper_qasan_store8(ptr, tcg_const_i32(off));
 
 }
 

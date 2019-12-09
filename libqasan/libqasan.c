@@ -206,6 +206,21 @@ void *memalign(size_t alignment, size_t size) {
 
 }
 
+void *memcpy(void *dest, const void *src, size_t n) {
 
+  void * rtv = __builtin_return_address(0);
 
+  QASAN_LOG("%p:\tmemcpy(%p, %p, %ld)\n", rtv, dest, src, n);
+  syscall(QASAN_HYPER_NR, QASAN_HYPER_MEMCPY, dest, src, n);
+
+}
+
+void *memset(void *s, int c, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%p:\tmemcpy(%p, %d, %ld)\n", rtv, s, c, n);
+  syscall(QASAN_HYPER_NR, QASAN_HYPER_MEMSET, s, c, n);
+
+}
 

@@ -34,6 +34,8 @@
 #include "afl-qemu-common.h"
 #include "tcg-op.h"
 
+__thread int cur_block_is_good;
+
 void afl_maybe_log(target_ulong cur_loc) {
 
   register uintptr_t afl_idx = cur_loc ^ afl_prev_loc;
@@ -50,9 +52,9 @@ static void afl_gen_trace(target_ulong cur_loc) {
   /* Optimize for cur_loc > afl_end_code, which is the most likely case on
      Linux systems. */
 
-  if (cur_loc > afl_end_code ||
-      cur_loc < afl_start_code /*|| !afl_area_ptr*/)  // not needed because of
-                                                      // static dummy buffer
+  cur_block_is_good = cur_loc >= afl_start_code && cur_loc < afl_end_code;
+
+  if (!cur_block_is_good)
     return;
 
   /* Looks like QEMU always maps to fixed locations, so ASLR is not a

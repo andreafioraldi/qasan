@@ -11506,7 +11506,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
 
     case QASAN_HYPER_NR:
         /* QASAN hypercall */
-        return qasan_hypercall(arg1, arg2, arg3);
+        return qasan_fake_syscall(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 
     default:
         qemu_log_mask(LOG_UNIMP, "Unsupported syscall: %d\n", num);
