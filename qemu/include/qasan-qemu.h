@@ -6,6 +6,8 @@
 #include "../../include/qasan.h"
 #include "tcg.h"
 
+#define WIDE_PAD 16
+
 void *__asan_memcpy(void *dest, const void *src, size_t n);
 void *__asan_memset(void *s, int c, size_t n);
 
@@ -19,20 +21,23 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         
         case QASAN_HYPER_MALLOC: {
             abi_long r = h2g(malloc(arg1));
-            page_set_flags(r, r + arg1, PROT_READ | PROT_WRITE | PAGE_VALID);
+            if (r) page_set_flags(r - WIDE_PAD, r + arg1 + WIDE_PAD, 
+                                  PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
         case QASAN_HYPER_CALLOC: {
             abi_long r = h2g(calloc(arg1, arg2));
-            page_set_flags(r, r + (arg1 * arg2), PROT_READ | PROT_WRITE | PAGE_VALID);
+            if (r) page_set_flags(r - WIDE_PAD, r + (arg1 * arg2) + WIDE_PAD,
+                                  PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
         case QASAN_HYPER_REALLOC: {
             free(g2h(arg1));
             abi_long r = h2g(malloc(arg2));
-            page_set_flags(r, r + arg2, PROT_READ | PROT_WRITE | PAGE_VALID);
+            if (r) page_set_flags(r - WIDE_PAD, r + arg2 + WIDE_PAD,
+                                  PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
@@ -42,7 +47,8 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         
         case QASAN_HYPER_MEMALIGN: {
             abi_long r = h2g(memalign(arg1, arg2));
-            page_set_flags(r, r + arg2, PROT_READ | PROT_WRITE | PAGE_VALID);
+            if (r) page_set_flags(r - WIDE_PAD, r + arg2 + WIDE_PAD,
+                                  PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define DEBUG
+//#define DEBUG
 #include "qasan.h"
 
 #include <signal.h>
@@ -113,7 +113,7 @@ void posix_signal_handler(int sig, siginfo_t *siginfo, void *context) {
       break;
   }
   
-  exit(1);
+  exit(127);
 }
 
 __attribute__((constructor)) void set_signal_handler()

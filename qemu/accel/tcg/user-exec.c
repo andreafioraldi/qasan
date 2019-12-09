@@ -40,6 +40,7 @@
 #include <sys/ucontext.h>
 #endif
 
+#include "../../../afl/config.h"
 __thread uintptr_t helper_retaddr;
 
 //#define DEBUG_SIGNAL
@@ -97,7 +98,8 @@ static inline int handle_cpu_signal(uintptr_t pc, siginfo_t *info,
     if (!cpu || !cpu->running) {
         printf("qemu:%s received signal outside vCPU context @ pc=0x%"
                PRIxPTR "\n",  __func__, pc);
-        abort();
+        //abort();
+        _exit(MSAN_ERROR);
     }
 
 #if defined(DEBUG_SIGNAL)
