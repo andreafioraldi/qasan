@@ -59,6 +59,8 @@
 #include "exec/log.h"
 #include "sysemu/cpus.h"
 
+#include "../afl/afl-qemu-translate-inl.h"
+
 /* #define DEBUG_TB_INVALIDATE */
 /* #define DEBUG_TB_FLUSH */
 /* make various TB consistency checks */
@@ -1721,6 +1723,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     tcg_func_start(tcg_ctx);
 
     tcg_ctx->cpu = ENV_GET_CPU(env);
+    afl_gen_trace(pc);
     gen_intermediate_code(cpu, tb);
     tcg_ctx->cpu = NULL;
 

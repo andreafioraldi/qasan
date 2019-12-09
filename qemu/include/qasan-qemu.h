@@ -49,14 +49,16 @@ static abi_long qasan_hypercall(abi_long action, abi_long arg1, abi_long arg2)
     return 0;
 }
 
-void __asan_report_load1(void*);
-void __asan_report_load2(void*);
-void __asan_report_load4(void*);
-void __asan_report_load8(void*);
-void __asan_report_store1(void*);
-void __asan_report_store2(void*);
-void __asan_report_store4(void*);
-void __asan_report_store8(void*);
+void __asan_load1(void*);
+void __asan_load2(void*);
+void __asan_load4(void*);
+void __asan_load8(void*);
+void __asan_store1(void*);
+void __asan_store2(void*);
+void __asan_store4(void*);
+void __asan_store8(void*);
+
+extern abi_ulong afl_start_code, afl_end_code;
 
 // TODO collapse into a macro
 

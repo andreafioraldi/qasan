@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-//#define DEBUG
+#define DEBUG
 #include "qasan.h"
 
 #include <signal.h>
@@ -16,7 +16,7 @@ void print_maps(void) {
   long fsize = ftell(f);
   fseek(f, 0, SEEK_SET);
 
-  char *string = malloc(fsize +10);
+  char *string = malloc(fsize +1);
   fread(string, 1, fsize, f);
   fclose(f);
 

@@ -7205,3 +7205,5 @@ float128 float128_scalbn(float128 a, int n, float_status *status)
                                          , status);
 
 }
+
+#include "../../afl/afl-qemu-floats.h"

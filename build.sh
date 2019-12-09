@@ -11,13 +11,12 @@ make -j `nproc`
 
 cp x86_64-linux-user/qemu-x86_64 ../
 
-cd ../qasan-alloc
+cd ../libqasan
 
 make
 
 cp libqasan.so ..
 
 cd ..
-
 
 

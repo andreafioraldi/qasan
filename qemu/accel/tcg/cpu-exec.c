@@ -36,6 +36,8 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
+#include "../afl/afl-qemu-cpu-inl.h"
+
 /* -icount align implementation. */
 
 typedef struct SyncClocks {
@@ -143,6 +145,8 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)
     TranslationBlock *last_tb;
     int tb_exit;
     uint8_t *tb_ptr = itb->tc.ptr;
+
+    AFL_QEMU_CPU_SNIPPET2;
 
     qemu_log_mask_and_addr(CPU_LOG_EXEC, itb->pc,
                            "Trace %d: %p ["
@@ -397,11 +401,13 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
     TranslationBlock *tb;
     target_ulong cs_base, pc;
     uint32_t flags;
+    bool was_translated = false, was_chained = false;
 
     tb = tb_lookup__cpu_state(cpu, &pc, &cs_base, &flags, cf_mask);
     if (tb == NULL) {
         mmap_lock();
         tb = tb_gen_code(cpu, pc, cs_base, flags, cf_mask);
+        was_translated = true;
         mmap_unlock();
         /* We add the TB in the virtual pc hash table for the fast lookup */
         atomic_set(&cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)], tb);
@@ -418,6 +424,10 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
     /* See if we can patch the calling TB. */
     if (last_tb) {
         tb_add_jump(last_tb, tb_exit, tb);
+        was_chained = true;
+    }
+    if (was_translated || was_chained) {
+        afl_request_tsl(pc, cs_base, flags, cf_mask, was_chained ? last_tb : NULL, tb_exit);
     }
     return tb;
 }
