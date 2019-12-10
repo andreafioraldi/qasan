@@ -7138,6 +7138,15 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
                     return -TARGET_EFAULT;
                 if (!addr)
                     break;
+                // QASAN: remove preloaded library
+                if (!getenv("QASAN_PRESERVE_EXECVE")) {
+                  if (!strncmp("LD_PRELOAD=", (char *)addr, 11)) {
+                    char* data = (char *)addr + 11;
+                    char* have_qasan = strstr(data, "libqasan.so");
+                    if (have_qasan)
+                      *data = 0;
+                  }
+                }
                 envc++;
             }
 

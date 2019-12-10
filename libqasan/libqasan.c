@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <inttypes.h>
 
 #define DEBUG
 #include "qasan.h"
-
-#include <signal.h>
-#include <ucontext.h>
 
 int __qasan_debug;
 
@@ -21,7 +22,8 @@ void print_maps(void) {
 
   size_t len = strlen(buf);
 
-  QASAN_LOG("Process maps:\n");
+  QASAN_LOG("\n");
+  QASAN_LOG("Guest process maps:\n");
   int i;
   char * line = NULL;
   for (i = 0; i < len; i++) {
@@ -32,6 +34,8 @@ void print_maps(void) {
       line = NULL;
     }
   }
+  if (line) QASAN_LOG("%s\n", line);
+  QASAN_LOG("\n");
 
 }
 
@@ -69,9 +73,11 @@ void posix_signal_handler(int sig, siginfo_t *siginfo, void *context) {
 #else
   pc = (void*)ctx->uc_mcontext.gregs[REG_EIP];
 #endif
-  QASAN_LOG("Caught %s\n\tPC = %p\n\tADDR = %p\n", strex, pc, siginfo->si_addr);
-  
-  _exit(86);
+  QASAN_LOG("\n");
+  QASAN_LOG("Caught %s: pc=%p addr=%p\n", strex, pc, siginfo->si_addr);
+  QASAN_LOG("\n");
+
+  _exit(siginfo->si_status);
 
 }
 
@@ -219,7 +225,7 @@ void free(void * ptr) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: free(%p)\n", rtv, ptr);
-  syscall(QASAN_FAKESYS_NR, QASAN_ACTION_FREE, ptr);
+  //syscall(QASAN_FAKESYS_NR, QASAN_ACTION_FREE, ptr);
 
 }
 

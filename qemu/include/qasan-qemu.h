@@ -53,10 +53,16 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         }
         
         case QASAN_ACTION_REALLOC: {
-            free(g2h(arg1));
             abi_long r = h2g(malloc(arg2));
-            if (r) page_set_flags(r - WIDE_PAD, r + arg2 + WIDE_PAD,
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
+            if (r) {
+              page_set_flags(r - WIDE_PAD, r + arg2 + WIDE_PAD,
+                             PROT_READ | PROT_WRITE | PAGE_VALID);
+              memcpy(g2h(r), g2h(arg1), malloc_usable_size(g2h(arg1)));
+            }
+            free(g2h(arg1));
+            /*abi_long r = h2g(realloc(g2h(arg1), arg2));
+            if (r) page_set_flags(r - WIDE_PAD, r + arg1 + WIDE_PAD, 
+                                  PROT_READ | PROT_WRITE | PAGE_VALID);*/
             return r;
         }
         
