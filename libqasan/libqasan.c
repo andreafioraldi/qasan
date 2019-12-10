@@ -277,3 +277,135 @@ void *memset(void *s, int c, size_t n) {
 
 }
 
+char *strchr(const char *s, int c) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strchr(%p, %d)\n", rtv, s, c);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRCHR, s, c);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+int strcasecmp(const char *s1, const char *s2) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strcasecmp(%p, %p)\n", rtv, s1, s2);
+  int r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRCASECMP, s1, s2);
+  QASAN_LOG("\t\t = %d\n", r);
+  
+  return r;
+
+}
+
+char *strcat(char *dest, const char *src) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strcat(%p, %p)\n", rtv, dest, src);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRCAT, dest, src);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+int strcmp(const char *s1, const char *s2) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strcmp(%p, %p)\n", rtv, s1, s2);
+  int r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRCMP, s1, s2);
+  QASAN_LOG("\t\t = %d\n", r);
+  
+  return r;
+
+}
+
+char *strcpy(char *dest, const char *src) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strcpy(%p, %p)\n", rtv, dest, src);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRCPY, dest, src);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+char *strdup(const char *s) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strdup(%p)\n", rtv, s);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRDUP, s);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+size_t strlen(const char *s) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strlen(%p)\n", rtv, s);
+  size_t r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRLEN, s);
+  QASAN_LOG("\t\t = %ld\n", r);
+  
+  return r;
+
+}
+
+int strncasecmp(const char *s1, const char *s2, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strncasecmp(%p, %p, %ld)\n", rtv, s1, s2, n);
+  int r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRNCASECMP, s1, s2, n);
+  QASAN_LOG("\t\t = %d\n", r);
+  
+  return r;
+
+}
+
+int strncmp(const char *s1, const char *s2, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strncmp(%p, %p, %ld)\n", rtv, s1, s2, n);
+  int r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRNCMP, s1, s2, n);
+  QASAN_LOG("\t\t = %d\n", r);
+  
+  return r;
+
+}
+
+char *strncpy(char *dest, const char *src, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strncpy(%p, %p, %ld)\n", rtv, dest, src, n);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRNCPY, dest, src, n);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+size_t strnlen(const char *s, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strnlen(%p, %ld)\n", rtv, s, n);
+  size_t r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRNLEN, s, n);
+  QASAN_LOG("\t\t = %ld\n", r);
+  
+  return r;
+
+}
+

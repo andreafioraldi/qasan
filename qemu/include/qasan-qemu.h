@@ -114,16 +114,54 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         return memcmp(g2h(arg1), g2h(arg2), arg3);
         
         case QASAN_ACTION_MEMCPY:
-        return __asan_memcpy(g2h(arg1), g2h(arg2), arg3);
+        return h2g(__asan_memcpy(g2h(arg1), g2h(arg2), arg3));
         
         case QASAN_ACTION_MEMMOVE:
-        return __asan_memmove(g2h(arg1), g2h(arg2), arg3);
+        return h2g(__asan_memmove(g2h(arg1), g2h(arg2), arg3));
         
         case QASAN_ACTION_MEMSET:
-        return __asan_memset(g2h(arg1), arg2, arg3);
+        return h2g(__asan_memset(g2h(arg1), arg2, arg3));
+        
+        case QASAN_ACTION_STRCHR:
+        return h2g(strchr(g2h(arg1), arg2));
+        
+        case QASAN_ACTION_STRCASECMP:
+        return strcasecmp(g2h(arg1), g2h(arg2));
+        
+        case QASAN_ACTION_STRCAT:
+        return strcasecmp(g2h(arg1), g2h(arg2));
+        
+        case QASAN_ACTION_STRCMP:
+        return strcmp(g2h(arg1), g2h(arg2));
+        
+        case QASAN_ACTION_STRCPY:
+        return h2g(strcpy(g2h(arg1), g2h(arg2)));
+        
+        case QASAN_ACTION_STRDUP: {
+            size_t l = strlen(g2h(arg1));
+            abi_long r = h2g(strdup(g2h(arg1)));
+            if (r) page_set_flags(r - WIDE_PAD, r + l + WIDE_PAD, 
+                                  PROT_READ | PROT_WRITE | PAGE_VALID);
+            return r;
+        }
+        
+        case QASAN_ACTION_STRLEN:
+        return strlen(g2h(arg1));
+        
+        case QASAN_ACTION_STRNCASECMP:
+        return strncasecmp(g2h(arg1), g2h(arg2), arg3);
+        
+        case QASAN_ACTION_STRNCMP:
+        return strncmp(g2h(arg1), g2h(arg2), arg3);
+        
+        case QASAN_ACTION_STRNCPY:
+        return h2g(strncpy(g2h(arg1), g2h(arg2), arg3));
+        
+        case QASAN_ACTION_STRNLEN:
+        return strnlen(g2h(arg1), arg2);
         
         default:
-        QASAN_LOG("Invalid QASAN hyper action %d\n", action);
+        QASAN_LOG("Invalid QASAN action %d\n", action);
         abort();
     }
 
