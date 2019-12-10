@@ -1,0 +1,8 @@
+#!/bin/sh
+
+SCRIPT=`readlink -f "$0"`
+SCRIPTPATH=`dirname "$SCRIPT"`
+
+export QASAN_DEBUG=1
+
+"$SCRIPTPATH/qemu-x86_64" -E LD_PRELOAD="$SCRIPTPATH/libqasan.so" $@

@@ -174,6 +174,8 @@ void HELPER(exit_atomic)(CPUArchState *env)
 
 #include "qasan-qemu.h"
 
+int __qasan_debug;
+
 void HELPER(qasan_load1)(void * ptr, uint32_t off) {
 
   abi_ulong addr = (abi_ulong)ptr + off;

@@ -11504,8 +11504,8 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
         return do_swapcontext(cpu_env, arg1, arg2, arg3);
 #endif
 
-    case QASAN_HYPER_NR:
-        /* QASAN hypercall */
+    case QASAN_FAKESYS_NR:
+        /* QASAN syscall */
         return qasan_fake_syscall(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 
     default:
