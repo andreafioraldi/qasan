@@ -19,13 +19,14 @@ void __asan_store8(void*);
 void __asan_loadN(void*, size_t);
 void __asan_storeN(void*, size_t);
 
-void *__asan_memcpy(void *dest, const void *src, size_t n);
-void *__asan_memset(void *s, int c, size_t n);
+void *__asan_memcpy(void *, void *, size_t);
+void *__asan_memmove(void *, void *, size_t);
+void *__asan_memset(void *, int, size_t);
 
 static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
                     abi_long arg2, abi_long arg3, abi_long arg4,
-                    abi_long arg5, abi_long arg6, abi_long arg7)
-{
+                    abi_long arg5, abi_long arg6, abi_long arg7) {
+
     switch(action) {
         case QASAN_ACTION_CHECK_LOAD:
         __asan_loadN(g2h(arg1), arg2);
@@ -109,8 +110,14 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         free(g2h(arg1));
         break;
         
+        case QASAN_ACTION_MEMCMP:
+        return memcmp(g2h(arg1), g2h(arg2), arg3);
+        
         case QASAN_ACTION_MEMCPY:
         return __asan_memcpy(g2h(arg1), g2h(arg2), arg3);
+        
+        case QASAN_ACTION_MEMMOVE:
+        return __asan_memmove(g2h(arg1), g2h(arg2), arg3);
         
         case QASAN_ACTION_MEMSET:
         return __asan_memset(g2h(arg1), arg2, arg3);

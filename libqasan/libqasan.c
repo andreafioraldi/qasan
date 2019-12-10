@@ -219,13 +219,25 @@ void * pvalloc(size_t size) {
 
 }
 
-
 void free(void * ptr) {
 
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: free(%p)\n", rtv, ptr);
-  //syscall(QASAN_FAKESYS_NR, QASAN_ACTION_FREE, ptr);
+  syscall(QASAN_FAKESYS_NR, QASAN_ACTION_FREE, ptr);
+
+}
+
+
+int memcmp(const void *s1, const void *s2, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: memcmp(%p, %p, %ld)\n", rtv, s1, s2, n);
+  int r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_MEMCMP, s1, s2, n);
+  QASAN_LOG("\t\t = %d\n", r);
+  
+  return r;
 
 }
 
@@ -235,6 +247,18 @@ void *memcpy(void *dest, const void *src, size_t n) {
 
   QASAN_LOG("%14p: memcpy(%p, %p, %ld)\n", rtv, dest, src, n);
   void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_MEMCPY, dest, src, n);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+void *memmove(void *dest, const void *src, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: memmove(%p, %p, %ld)\n", rtv, dest, src, n);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_MEMMOVE, dest, src, n);
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -252,5 +276,4 @@ void *memset(void *s, int c, size_t n) {
   return r;
 
 }
-
 
