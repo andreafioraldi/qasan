@@ -1,8 +1,30 @@
-#!/bin/sh
+#!/usr/bin/env python3
 
-SCRIPT=`readlink -f "$0"`
-SCRIPTPATH=`dirname "$SCRIPT"`
+import os
+import sys
+import argparse
 
-export QASAN_DEBUG=1
+DESCR = """QEMU-AddressSanitizer (v0.1)
+Copyright (C) 2019 Andrea Fioraldi <andreafioraldi@gmail.com>
+"""
 
-"$SCRIPTPATH/qemu-x86_64" -E LD_PRELOAD="$SCRIPTPATH/libqasan.so" $@
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
+opt = argparse.ArgumentParser(description=DESCR, formatter_class=argparse.RawTextHelpFormatter)
+opt.add_argument("--verbose", help="Verbose debug log", action='store_true')
+opt.add_argument('target', nargs=argparse.REMAINDER, help="Target program (and arguments)")
+
+args = opt.parse_args()
+
+env = os.environ.copy()
+if args.verbose:
+    env["QASAN_DEBUG"] = "1"
+
+argv = [
+  os.path.join(dir_path, "qemu-x86_64"),
+  "-E",
+  "LD_PRELOAD=" + os.path.join(dir_path, "libqasan.so"),
+]
+argv += args.target
+
+os.execve(argv[0], argv, env)
