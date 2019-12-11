@@ -1,5 +1,5 @@
 tests/double_free
-
+libclang_rt.asan-x86_64.so
 qemu-x86_64
 libqasan.so
 libqasan/libqasan.so
