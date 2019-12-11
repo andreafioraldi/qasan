@@ -82,7 +82,9 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
             if (r) {
               page_set_flags(r - WIDE_PAD, r + arg2 + WIDE_PAD,
                              PROT_READ | PROT_WRITE | PAGE_VALID);
-              __asan_memcpy(g2h(r), g2h(arg1), __interceptor_malloc_usable_size(g2h(arg1)));
+              size_t l = __interceptor_malloc_usable_size(g2h(arg1));
+              if (arg2 < l) l = arg2;
+              __asan_memcpy(g2h(r), g2h(arg1), l);
             }
             __interceptor_free(g2h(arg1));
             /*abi_long r = h2g(__interceptor_realloc(g2h(arg1), arg2));
