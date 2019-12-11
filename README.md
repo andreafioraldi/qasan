@@ -63,7 +63,7 @@ sys	0m0,032s
 Valgrind (slowdown: 17.4x):
 
 ```
-$ time ./qasan /usr/bin/objdump -g -x /usr/bin/objdump
+$ time valgrind /usr/bin/objdump -g -x /usr/bin/objdump
 ...
 real	0m1,009s
 user	0m0,921s
