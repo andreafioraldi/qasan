@@ -41,6 +41,8 @@ To fuzz am x86_64 binary with QASAN and AFL++ use a command similar to the follo
 ~/AFLplusplus/afl-fuzz -U -i in -o out -m none -- python3 ~/qasan/qasan ./program
 ``` 
 
+It supports all the AFL++ QEMU configurations, `AFL_COMPCOV_LEVEL=2` is higly suggested.
+
 ## Performance
 
 Native (slowdown: 1x):
