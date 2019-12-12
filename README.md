@@ -1,6 +1,6 @@
-# QASAN (QEMU AddressSanitizer)
+# QASan (QEMU-AddressSanitizer)
 
-QASAN is a custom QEMU 3.1.1 that detects memory errors in the guest using clang's AddressSanitizer.
+QASan is a custom QEMU 3.1.1 that detects memory errors in the guest using clang's AddressSanitizer.
 
 ## Build
 
@@ -8,7 +8,7 @@ Tested only on Ubuntu 18.04 with clang-8 installed.
 
 You need the lief python3 package.
 
-Build using the `build.py` script specifying the path to the ASAN DSO.
+Build using the `build.py` script specifying the path to the ASan DSO.
 
 
 ```
@@ -25,7 +25,7 @@ Other available options are:
 
 ## Usage
 
-To simply run a binary under QASAN:
+To simply run a binary under QASan:
 
 `./qasan ./program args...`
 
@@ -33,7 +33,7 @@ To get a verbose debug output of the hooked actions:
 
 `./qasan --verbose ./program args...`
 
-Note that QASAN will not output meaningful stacktraces or error reports.
+Note that QASan will not output meaningful stacktraces or error reports.
 
 The reported errors show informaton about the QEMU host and so they are not useful for debugging, I suggest to use Valgrind instead.
 
@@ -41,7 +41,7 @@ As the main use case is fuzzing and the advantage over other binary-level memory
 
 ### Fuzzing
 
-To fuzz am x86_64 binary with QASAN and AFL++ use a command similar to the following:
+To fuzz am x86_64 binary with QASan and AFL++ use a command similar to the following:
 
 ```
 ~/AFLplusplus/afl-fuzz -U -i in -o out -m none -- python3 ~/qasan/qasan ./program
@@ -71,7 +71,7 @@ user	0m0,096s
 sys	0m0,020s
 ```
 
-QASAN (slowdown: 3.6x):
+QASan (slowdown: 3.6x):
 
 ```
 $ time ./qasan /usr/bin/objdump -g -x /usr/bin/objdump

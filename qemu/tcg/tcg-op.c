@@ -32,6 +32,56 @@
 #include "trace-tcg.h"
 #include "trace/mem.h"
 
+// TODO collapse into a macro
+
+void qasan_gen_load1(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_load1(ptr, tcg_const_i32(off));
+
+}
+
+void qasan_gen_load2(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_load2(ptr, tcg_const_i32(off));
+
+}
+
+void qasan_gen_load4(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_load4(ptr, tcg_const_i32(off));
+
+}
+
+void qasan_gen_load8(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_load8(ptr, tcg_const_i32(off));
+
+}
+
+void qasan_gen_store1(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_store1(ptr, tcg_const_i32(off));
+
+}
+
+void qasan_gen_store2(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_store2(ptr, tcg_const_i32(off));
+
+}
+
+void qasan_gen_store4(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_store4(ptr, tcg_const_i32(off));
+
+}
+
+void qasan_gen_store8(TCGv_ptr ptr, int off) {
+  
+  if (cur_block_is_good) gen_helper_qasan_store8(ptr, tcg_const_i32(off));
+
+}
+
 /* Reduce the number of ifdefs below.  This assumes that all uses of
    TCGV_HIGH and TCGV_LOW are properly protected by a conditional that
    the compiler can eliminate.  */

@@ -17,7 +17,7 @@ DESCR = """QEMU-AddressSanitizer Builder
 Copyright (C) 2019 Andrea Fioraldi <andreafioraldi@gmail.com>
 """
 
-EPILOG="""Note that the ASAN DSO must refer to the host arch (probably x86_64)
+EPILOG="""Note that the ASan DSO must refer to the host arch (probably x86_64)
 and not to the target architecture specified with --arch.
 As example, on Ubuntu 18.04, it is:
 /usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so
@@ -35,7 +35,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 opt = argparse.ArgumentParser(description=DESCR, epilog=EPILOG, formatter_class=argparse.RawTextHelpFormatter)
 opt.add_argument("--arch", help="Set target architecture (default x86_64)", action='store', default="x86_64")
-opt.add_argument('--asan-dso', help="Path to ASAN DSO", action='store', required=("--clean" not in sys.argv))
+opt.add_argument('--asan-dso', help="Path to ASan DSO", action='store', required=("--clean" not in sys.argv))
 opt.add_argument("--clean", help="Clean builded files", action='store_true')
 opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', default="clang-8")
 opt.add_argument("--cxx", help="C++ compiler (default clang++-8)", action='store', default="clang++-8")

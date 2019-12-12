@@ -231,3 +231,4 @@ void HELPER(qasan_store8)(void * ptr, uint32_t off) {
   __asan_store8(addr);
 
 }
+
