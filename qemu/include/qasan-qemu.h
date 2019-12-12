@@ -8,6 +8,9 @@
 
 #define WIDE_PAD 16
 
+void __asan_poison_memory_region(void const volatile *addr, size_t size);
+void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
+
 void __asan_load1(void*);
 void __asan_load2(void*);
 void __asan_load4(void*);

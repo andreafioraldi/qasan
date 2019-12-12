@@ -21,7 +21,7 @@ if args.verbose:
     env["QASAN_DEBUG"] = "1"
 
 argv = [
-  os.path.join(dir_path, "qemu-x86_64"),
+  os.path.join(dir_path, "qasan-qemu"),
   "-E",
   "LD_PRELOAD=" + os.path.join(dir_path, "libqasan.so"),
 ]
