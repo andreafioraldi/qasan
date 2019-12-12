@@ -4,19 +4,24 @@ QASAN is a custom QEMU 3.1.1 that detects memory errors in the guest using clang
 
 ## Build
 
-You need Ubuntu 18.04 and the clang-8 package installed.
+Tested only on Ubuntu 18.04 with clang-8 installed.
 
-You need also the lief python3 package.
+You need the lief python3 package.
 
-Generate a patched ASAN DSO doing:
+Build using the `build.py` script specifying the path to the ASAN DSO.
+
 
 ```
-python3 patch_asan_dso.py /path/to/libclang_rt.asan-x86_64.so
+./build.py --asan-dso /path/to/libclang_rt.asan-ARCH.so
 ```
 
 On Ubuntu 18.04, the path is `/usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so`
 
-Then run `./build.sh`.
+Other available options are:
+
++ `--arch` to specify the target architecture (default is x86_64, the only that works ATM)
++ `--cc` and `--cxx` to specify C and C++ compilers (default clang-8)
++ `--clean` to clean builded files
 
 ## Usage
 
