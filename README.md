@@ -33,6 +33,14 @@ To get a verbose debug output of the hooked actions:
 
 `./qasan --verbose ./program args...`
 
+### Fuzzing
+
+To fuzz am x86_64 binary with QASAN and AFL++ use a command similar to the following:
+
+```
+~/AFLplusplus/afl-fuzz -U -i in -o out -m none -- python3 ~/qasan/qasan ./program
+``` 
+
 ## Performance
 
 Native (slowdown: 1x):
