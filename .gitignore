@@ -1,6 +1,7 @@
 tests/double_free
 tests/oob_neg_read
 libclang_rt.asan-x86_64.so
+qasan-qemu
 qemu-x86_64
 libqasan.so
 libqasan/libqasan.so

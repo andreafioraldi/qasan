@@ -1,2 +1,4 @@
+CC := clang-8
+
 all:
-	clang-8 -fPIC -shared -I ../include libqasan.c -o libqasan.so -ldl
+	$(CC) $(CFLAGS) -fPIC -shared -I ../include libqasan.c -o libqasan.so -ldl $(LDFLAGS)

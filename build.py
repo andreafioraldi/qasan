@@ -3,6 +3,7 @@
 import os
 import sys
 import shutil
+import platform
 import argparse
 try:
     import lief
@@ -27,9 +28,31 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 opt = argparse.ArgumentParser(description=DESCR, formatter_class=argparse.RawTextHelpFormatter)
 opt.add_argument("--arch", help="Set target architecture (default x86_64)", action='store', default="x86_64")
-opt.add_argument('--asan-dso', help="Path to ASAN DSO (e.g. /usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so on Ubuntu 18.04 x86_64)", action='store', required=True)
+opt.add_argument('--asan-dso', help="Path to ASAN DSO", action='store', required=("--clean" not in sys.argv))
+opt.add_argument("--clean", help="Clean builded files", action='store_true')
 
 args = opt.parse_args()
+
+host_arch = platform.machine()
+output_dso = os.path.join(dir_path, "libclang_rt.asan-%s.so" % host_arch)
+
+def try_remove(path):
+    print("Deleting", path)
+    try:
+        os.remove(path)
+    except:
+        pass
+
+if args.clean:
+    print("Cleaning...")
+    try_remove(os.path.join(dir_path, "qasan-qemu"))
+    try_remove(os.path.join(dir_path, "libqasan.so"))
+    try_remove(os.path.join(dir_path, "libqasan", "libqasan.so"))
+    try_remove(output_dso)
+    os.system("""cd '%s' ; make clean""" % (os.path.join(dir_path, "qemu")))
+    print("Successful clean.")
+    print("")
+    exit(0)
 
 if args.arch not in ARCHS:
     print("ERROR:", args.arch, "is not a supported architecture.")
@@ -64,23 +87,32 @@ def deintercept(asan_dso, output_dso):
 
     lib.write(output_dso)
 
-output_dso = os.path.join(dir_path, "libclang_rt.asan-%s.so" % arch)
 deintercept(args.asan_dso, output_dso)
 
-os.system("""cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
+assert ( os.system("""cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
   --cc="clang-8" --cxx="clang++-8" --extra-cflags="-O3 -ggdb" \
-  --extra-ldflags="-L %s -lclang_rt.asan-x86_64 -Wl,-rpath,.,-rpath,%s" \
+  --extra-ldflags="-L %s -lclang_rt.asan-%s -Wl,-rpath,.,-rpath,%s" \
   --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-strip"""
-  % (os.path.join(dir_path, "qemu"), arch, dir_path, dir_path))
+  % (os.path.join(dir_path, "qemu"), arch, dir_path, host_arch, dir_path)) == 0 )
 
-os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu")))
+assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
 
 shutil.copy2(
   os.path.join(dir_path, "qemu", arch + "-linux-user", "qemu-" + arch),
   os.path.join(dir_path, "qasan-qemu")
 )
 
-os.system("""cd '%s' ; make ; cp libqasan.so ..""" % (os.path.join(dir_path, "libqasan")))
+libqasan_cflags = ""
+if arch == "i386":
+    libqasan_cflags = "-m32"
+
+assert ( os.system("""cd '%s' ; make CFLAGS='%s'"""
+  % (os.path.join(dir_path, "libqasan"), libqasan_cflags)) == 0 )
+
+shutil.copy2(
+  os.path.join(dir_path, "libqasan", "libqasan.so"),
+  dir_path
+)
 
 print("Successful build.")
 print("Test it with ./qasan /bin/ls")
