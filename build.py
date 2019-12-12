@@ -27,8 +27,8 @@ As example, on Ubuntu 18.04, it is:
 ARCHS = {
   "x86_64": "x86_64",
   "amd64": "x86_64",
-  "x86": "i386",
-  "i386": "i386",
+  #"x86": "i386",
+  #"i386": "i386",
 }
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
