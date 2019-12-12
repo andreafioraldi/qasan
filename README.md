@@ -33,6 +33,12 @@ To get a verbose debug output of the hooked actions:
 
 `./qasan --verbose ./program args...`
 
+Note that QASAN will not output meaningful stacktraces or error reports.
+
+The reported errors show informaton about the QEMU host and so they are not useful for debugging, I suggest to use Valgrind instead.
+
+As the main use case is fuzzing and the advantage over other binary-level memory checkers is the speed, they are not really needed.
+
 ### Fuzzing
 
 To fuzz am x86_64 binary with QASAN and AFL++ use a command similar to the following:
