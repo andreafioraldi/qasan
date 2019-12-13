@@ -228,7 +228,7 @@ abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         return h2g(__asan_memcpy(g2h(arg1), g2h(arg2), arg3));
         
         case QASAN_ACTION_MEMMOVE:
-        return h2g(__asan_memmove(g2h(arg1), g2h(arg2), arg3));
+        return h2g(__interceptor_memmove(g2h(arg1), g2h(arg2), arg3));
         
         case QASAN_ACTION_MEMSET:
         return h2g(__asan_memset(g2h(arg1), arg2, arg3));
@@ -240,7 +240,7 @@ abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         return __interceptor_strcasecmp(g2h(arg1), g2h(arg2));
         
         case QASAN_ACTION_STRCAT:
-        return __interceptor_strcasecmp(g2h(arg1), g2h(arg2));
+        return __interceptor_strcat(g2h(arg1), g2h(arg2));
         
         case QASAN_ACTION_STRCMP:
         return __interceptor_strcmp(g2h(arg1), g2h(arg2));

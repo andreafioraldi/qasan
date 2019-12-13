@@ -253,12 +253,36 @@ void *memcpy(void *dest, const void *src, size_t n) {
 
 }
 
+/* For a strange reason memmove is broken so we provide this homemode version */
+void * __homemade_asan_memmove(void *dest, const void *src, size_t n) {
+
+   char *csrc = (char *)src; 
+   char *cdest = (char *)dest;
+   
+   syscall(QASAN_FAKESYS_NR, QASAN_ACTION_CHECK_LOAD, src, n);
+   syscall(QASAN_FAKESYS_NR, QASAN_ACTION_CHECK_STORE, dest, n);
+  
+   char *temp = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_MALLOC, n); 
+  
+   for (int i=0; i<n; i++) 
+       temp[i] = csrc[i];
+  
+   for (int i=0; i<n; i++) 
+       cdest[i] = temp[i];
+  
+   syscall(QASAN_FAKESYS_NR, QASAN_ACTION_FREE, temp);
+   
+   return dest;
+
+}
+
 void *memmove(void *dest, const void *src, size_t n) {
 
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: memmove(%p, %p, %ld)\n", rtv, dest, src, n);
-  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_MEMMOVE, dest, src, n);
+  void * r = __homemade_asan_memmove(dest, src, n);
+  //void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_MEMMOVE, dest, src, n);
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -408,4 +432,3 @@ size_t strnlen(const char *s, size_t n) {
   return r;
 
 }
-

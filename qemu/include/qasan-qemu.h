@@ -25,7 +25,7 @@ void __asan_loadN(void*, size_t);
 void __asan_storeN(void*, size_t);
 
 void *__asan_memcpy(void *, void *, size_t);
-void *__asan_memmove(void *, void *, size_t);
+void *__asan_memmove(void *, const void *, size_t);
 void *__asan_memset(void *, int, size_t);
 
 size_t __interceptor_malloc_usable_size (void * ptr);
@@ -39,6 +39,7 @@ void * __interceptor_valloc(size_t size);
 void * __interceptor_pvalloc(size_t size);
 void __interceptor_free(void * ptr);
 int __interceptor_memcmp(const void *s1, const void *s2, size_t n);
+void * __interceptor_memmove(void *s1, const void *s2, size_t n);
 char * __interceptor_strchr(const char *s, int c);
 int __interceptor_strcasecmp(const char *s1, const char *s2);
 char * __interceptor_strcat(char *dest, const char *src);
