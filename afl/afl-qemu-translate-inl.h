@@ -69,7 +69,7 @@ static void afl_gen_trace(target_ulong cur_loc) {
 
   if (cur_loc >= afl_inst_rms) return;
 
-  tcg_gen_afl_maybe_log_call(cur_loc);
+  tcg_gen_afl_maybe_log_call(cur_loc); // TODO bugged when building with --cpu=i386
 
 }
 

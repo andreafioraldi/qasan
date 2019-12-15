@@ -17,8 +17,9 @@ DESCR = """QEMU-AddressSanitizer Builder
 Copyright (C) 2019 Andrea Fioraldi <andreafioraldi@gmail.com>
 """
 
-EPILOG="""Note that the ASan DSO must refer to the host arch (probably x86_64)
-and not to the target architecture specified with --arch.
+EPILOG="""Note that the ASan DSO must refer to the host arch in a coherent way
+with TARGET_BITS. For example, if the target is arm32 you have to provide the
+i386 ASan DSO, if teh target if x86_64 you have to provide the x86_64 DSO.
 As example, on Ubuntu 18.04, it is:
 /usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so
 
@@ -27,9 +28,11 @@ As example, on Ubuntu 18.04, it is:
 ARCHS = {
   "x86_64": "x86_64",
   "amd64": "x86_64",
-  #"x86": "i386",
-  #"i386": "i386",
+  "x86": "i386",
+  "i386": "i386",
 }
+
+ARCHS_32 = ["i386"]
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -41,9 +44,6 @@ opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', de
 opt.add_argument("--cxx", help="C++ compiler (default clang++-8)", action='store', default="clang++-8")
 
 args = opt.parse_args()
-
-host_arch = platform.machine()
-output_dso = os.path.join(dir_path, "libclang_rt.asan-%s.so" % host_arch)
 
 def try_remove(path):
     print("Deleting", path)
@@ -57,7 +57,7 @@ if args.clean:
     try_remove(os.path.join(dir_path, "qasan-qemu"))
     try_remove(os.path.join(dir_path, "libqasan.so"))
     try_remove(os.path.join(dir_path, "libqasan", "libqasan.so"))
-    try_remove(output_dso)
+    # try_remove(output_dso)
     os.system("""cd '%s' ; make clean""" % (os.path.join(dir_path, "qemu")))
     print("Successful clean.")
     print("")
@@ -86,6 +86,11 @@ if not os.path.exists(args.asan_dso):
     print("")
     exit(1)
 
+output_dso = os.path.join(dir_path, os.path.basename(args.asan_dso))
+lib_dso = os.path.basename(args.asan_dso)
+if lib_dso.startswith("lib"): lib_dso = lib_dso[3:]
+if lib_dso.endswith(".so"): lib_dso = lib_dso[:-3]
+
 arch = ARCHS[args.arch]
 
 def deintercept(asan_dso, output_dso):
@@ -109,11 +114,20 @@ def deintercept(asan_dso, output_dso):
 
 deintercept(args.asan_dso, output_dso)
 
+cpu_qemu_flag = ""
+if arch in ARCHS_32:
+    cpu_qemu_flag = "--cpu=i386"
+    print("")
+    print("WARNING: To do a 32 bit build, you have to install i386 libraries and set PKG_CONFIG_PATH")
+    print("If you haven't did it yet, on Ubuntu 18.04 it is PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig")
+    print("")
+
 assert ( os.system("""cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
-  --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb" \
-  --extra-ldflags="-L %s -lclang_rt.asan-%s -Wl,-rpath,.,-rpath,%s" \
+  --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb" %s \
+  --extra-ldflags="-L %s -l%s -Wl,-rpath,.,-rpath,%s" \
   --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-strip"""
-  % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx, dir_path, host_arch, dir_path)) == 0 )
+  % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx, cpu_qemu_flag,
+     dir_path, lib_dso, dir_path)) == 0 )
 
 assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
 

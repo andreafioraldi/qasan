@@ -8,7 +8,19 @@
 
 #define WIDE_PAD 16
 
-#define GET_BP_PTR 
+#define LINUX_64_ALLOCATOR_BEGIN 0x600000000000ULL
+#define LINUX_32_ALLOCATOR_BEGIN 0x600000000000ULL
+
+// assume QEMU is an x86_64 process
+// TODO support other configurations
+#if TARGET_BITS == 64
+#define qasan_heap_h2g(x) h2g(x)
+#define qasan_heap_g2h(c) g2h(x)
+#else
+// guess x86
+#define qasan_heap_h2g(x) h2g(x)
+#define qasan_heap_g2h(c) g2h(x)
+#endif
 
 void __asan_poison_memory_region(void const volatile *addr, size_t size);
 void __asan_unpoison_memory_region(void const volatile *addr, size_t size);

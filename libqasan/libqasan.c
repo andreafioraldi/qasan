@@ -10,6 +10,9 @@
 #define DEBUG
 #include "qasan.h"
 
+#define CHECK_LOAD(ptr, len) syscall(QASAN_FAKESYS_NR, QASAN_ACTION_CHECK_LOAD, ptr, len)
+#define CHECK_STORE(ptr, len) syscall(QASAN_FAKESYS_NR, QASAN_ACTION_CHECK_STORE, ptr, len)
+
 int __qasan_debug;
 
 void print_maps(void) {
@@ -259,8 +262,8 @@ void * __homemade_asan_memmove(void *dest, const void *src, size_t n) {
    char *csrc = (char *)src; 
    char *cdest = (char *)dest;
    
-   syscall(QASAN_FAKESYS_NR, QASAN_ACTION_CHECK_LOAD, src, n);
-   syscall(QASAN_FAKESYS_NR, QASAN_ACTION_CHECK_STORE, dest, n);
+   CHECK_LOAD(src, n);
+   CHECK_STORE(dest, n);
   
    char *temp = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_MALLOC, n); 
   
