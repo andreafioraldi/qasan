@@ -19,9 +19,12 @@ On Ubuntu 18.04, the path is `/usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang
 
 Other available options are:
 
-+ `--arch` to specify the target architecture (default is x86_64, the only that works ATM)
++ `--arch` to specify the target architecture (default is x86_64)
 + `--cc` and `--cxx` to specify C and C++ compilers (default clang-8)
++ `--cross` to specify the cross C compiler for libqasan
 + `--clean` to clean builded files
+
+ATM, the supported architectures are x86, x86_64, arm and arm64.
 
 ## Usage
 
