@@ -73,8 +73,14 @@ void posix_signal_handler(int sig, siginfo_t *siginfo, void *context) {
   void * pc;
 #ifdef __x86_64__
   pc = (void*)ctx->uc_mcontext.gregs[REG_RIP];
-#else
+#elif __i386__
   pc = (void*)ctx->uc_mcontext.gregs[REG_EIP];
+#elif __arm__
+  pc = (void*)ctx->uc_mcontext.arm_pc;
+#elif __aarch64__
+  pc = (void*)ctx->uc_mcontext.pc;
+#else
+  pc = (void*)-1;
 #endif
   QASAN_LOG("\n");
   QASAN_LOG("Caught %s: pc=%p addr=%p\n", strex, pc, siginfo->si_addr);

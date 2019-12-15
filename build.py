@@ -30,9 +30,13 @@ ARCHS = {
   "amd64": "x86_64",
   "x86": "i386",
   "i386": "i386",
+  "arm": "arm",
+  "arm64": "aarch64",
+  "aarch64": "aarch64",
 }
 
-ARCHS_32 = ["i386"]
+ARCHS_32 = ["i386", "arm"]
+ARCHS_CROSS = ["aarch64"]
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -42,6 +46,7 @@ opt.add_argument('--asan-dso', help="Path to ASan DSO", action='store', required
 opt.add_argument("--clean", help="Clean builded files", action='store_true')
 opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', default="clang-8")
 opt.add_argument("--cxx", help="C++ compiler (default clang++-8)", action='store', default="clang++-8")
+opt.add_argument("--cross", help="Cross C compiler for libqasan", action='store')
 
 args = opt.parse_args()
 
@@ -93,6 +98,22 @@ if lib_dso.endswith(".so"): lib_dso = lib_dso[:-3]
 
 arch = ARCHS[args.arch]
 
+cross_cc = args.cc
+if arch in ARCHS_CROSS:
+    if args.cross is None:
+        cross_cc = "%s-linux-gnu-gcc" % arch
+        print("")
+        print("WARNING: The selected arch needs a cross compiler for libqasan")
+        print("We selected %s by default, use --cross to specify a custom one" % cross_cc)
+        print("")
+    else:
+        cross_cc = args.cross
+if shutil.which(cross_cc) is None:
+    print("ERROR:", cross_cc, " not found.")
+    print("Specify another Cross C compiler with --cross")
+    print("")
+    exit(1)
+
 def deintercept(asan_dso, output_dso):
     global arch
     print("Patching", asan_dso)
@@ -141,7 +162,7 @@ if arch == "i386":
     libqasan_cflags = "-m32"
 
 assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s'"""
-  % (os.path.join(dir_path, "libqasan"), args.cc, libqasan_cflags)) == 0 )
+  % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags)) == 0 )
 
 shutil.copy2(
   os.path.join(dir_path, "libqasan", "libqasan.so"),
