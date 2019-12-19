@@ -17,7 +17,7 @@
 #define QASAN_LOG(msg...) do {} while (0)
 #endif
 
-#define QASAN_FAKESYS_NR 0xa2a11
+#define QASAN_FAKESYS_NR 0xa2a4
 
 enum {
   QASAN_ACTION_CHECK_LOAD,

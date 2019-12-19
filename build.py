@@ -33,9 +33,9 @@ ARCHS = {
   "arm": "arm",
   "arm64": "aarch64",
   "aarch64": "aarch64",
-  "mips": "mips",
+  #"mips": "mips",
   "mips64": "mips64",
-  "mipsel": "mipsel",
+  #"mipsel": "mipsel",
   "mips64el": "mips64el",
 }
 

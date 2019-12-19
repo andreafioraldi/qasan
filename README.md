@@ -64,9 +64,13 @@ No that the overhead of AFL++ libdislocator is much lower but it can catch less 
 
 Another discriminat for the choice is [CompareCoverage](https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html). If your target has fuzzing roadblocks, you can use QASan+CompCov to fuzz it with Sanitization and Roadblocks bypassing.
 
-> MIPS doesn't work on my Ubuntu!
+> QEMU segfaults with big endian archs
 
-See https://bugs.launchpad.net/qemu/+bug/1701798, use another system.
+See https://bugs.launchpad.net/qemu/+bug/1701798, use the workaround described here.
+
+> MIPS doesn't work!
+
+Only MIPS64 is supported ATM, there are issues with the compatibility of the address spaces between MIPS and x86.
 
 ## Performance
 
