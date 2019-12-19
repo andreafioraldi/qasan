@@ -44,7 +44,7 @@ As the main use case is fuzzing and the advantage over other binary-level memory
 
 ### Fuzzing
 
-To fuzz am x86_64 binary with QASan and AFL++ use a command similar to the following:
+To fuzz a binary with QASan and AFL++ use a command similar to the following:
 
 ```
 ~/AFLplusplus/afl-fuzz -U -i in -o out -m none -- python3 ~/qasan/qasan ./program
@@ -93,3 +93,13 @@ real	0m1,009s
 user	0m0,921s
 sys	0m0,076s
 ```
+
+## When
+
+If your target binary is PIC x86_64, you should before give a try to [retrowrite](https://github.com/HexHive/retrowrite) for static rewriting.
+
+If it fails, or if your binary is for another architecture, QASan is the tool that you want/have to use.
+
+No that the overhead of AFL++ libdislocator is much lower but it can catch less bugs. This is a short blanket, take your choice.
+
+Another discriminat for the choice is [CompareCoverage](https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html). If your target has fuzzing roadblocks, you can use QASan+CompCov to fuzz it with Sanitization and Roadblocks bypassing.
