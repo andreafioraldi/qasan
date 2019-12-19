@@ -33,10 +33,16 @@ ARCHS = {
   "arm": "arm",
   "arm64": "aarch64",
   "aarch64": "aarch64",
+  "mips": "mips",
+  "mips64": "mips64",
+  "mipsel": "mipsel",
+  "mips64el": "mips64el",
 }
 
-ARCHS_32 = ["i386", "arm"]
-ARCHS_CROSS = ["aarch64"]
+ARCHS_32 = ["i386", "arm", "mips", "mipsel"]
+ARCHS_CROSS = list(set(ARCHS.values()))
+ARCHS_CROSS.remove("i386")
+ARCHS_CROSS.remove("x86_64")
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
