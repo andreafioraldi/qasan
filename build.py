@@ -80,19 +80,19 @@ if args.arch not in ARCHS:
     print("")
     exit(1)
 
-if shutil.which(args.cc) is None:
+if shutil.which(args.cc) is None and not os.path.isfile(args.cc):
     print("ERROR:", args.cc, " not found.")
     print("Specify another C compiler with --cc")
     print("")
     exit(1)
-if shutil.which(args.cxx) is None:
+if shutil.which(args.cxx) is None and not os.path.isfile(args.cxx):
     print("ERROR:", args.cxx, " not found.")
     print("Specify another C++ compiler with --cxx")
     print("")
     exit(1)
 
 # on Ubuntu 18.04: /usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so
-if not os.path.exists(args.asan_dso):
+if not os.path.isfile(args.asan_dso):
     print("ERROR:", args.asan_dso, "not found.")
     print("")
     exit(1)

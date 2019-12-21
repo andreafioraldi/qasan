@@ -27,6 +27,8 @@
 #include "qemu.h"
 #include "qemu-common.h"
 
+#include "qasan-syscall.h"
+
 //#define DEBUG
 
 static abi_ulong target_brk;
@@ -392,6 +394,11 @@ abi_long do_freebsd_syscall(void *cpu_env, int num, abi_long arg1,
     case TARGET_FREEBSD_NR___syscall:
         ret = do_freebsd_syscall(cpu_env,arg1 & 0xffff,arg2,arg3,arg4,arg5,arg6,arg7,arg8,0);
         break;
+        
+    case QASAN_FAKESYS_NR:
+        /* QASAN syscall */
+        return qasan_fake_syscall(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+
     default:
         ret = get_errno(syscall(num, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8));
         break;
@@ -467,6 +474,11 @@ abi_long do_netbsd_syscall(void *cpu_env, int num, abi_long arg1,
     case TARGET_NETBSD_NR___syscall:
         ret = do_netbsd_syscall(cpu_env,arg1 & 0xffff,arg2,arg3,arg4,arg5,arg6,0);
         break;
+
+    case QASAN_FAKESYS_NR:
+        /* QASAN syscall */
+        return qasan_fake_syscall(arg1, arg2, arg3, arg4, arg5, arg6, 0, 0);
+        
     default:
         ret = syscall(num, arg1, arg2, arg3, arg4, arg5, arg6);
         break;
@@ -542,6 +554,11 @@ abi_long do_openbsd_syscall(void *cpu_env, int num, abi_long arg1,
     case TARGET_OPENBSD_NR___syscall:
         ret = do_openbsd_syscall(cpu_env,arg1 & 0xffff,arg2,arg3,arg4,arg5,arg6,0);
         break;
+
+    case QASAN_FAKESYS_NR:
+        /* QASAN syscall */
+        return qasan_fake_syscall(arg1, arg2, arg3, arg4, arg5, arg6, 0, 0);
+
     default:
         ret = syscall(num, arg1, arg2, arg3, arg4, arg5, arg6);
         break;
