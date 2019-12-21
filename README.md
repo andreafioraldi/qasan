@@ -1,5 +1,7 @@
 # QASan (QEMU-AddressSanitizer)
 
+> Written and maintaned by Andrea Fioraldi <andreafioraldi@gmail.com>
+
 QASan is a custom QEMU 3.1.1 that detects memory errors in the guest using clang's AddressSanitizer.
 
 ## Build
@@ -25,6 +27,8 @@ Other available options are:
 + `--clean` to clean builded files
 
 ATM, the supported architectures are x86, x86_64, arm and arm64.
+
+Note that the ASan DSO architecture must be coherent with the bits of the target arch (with x86 and ARM you need `libclang_rt.asan-i386.so`).
 
 ## Usage
 
