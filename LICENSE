@@ -1,0 +1,14 @@
+QEMU-AddressSanitizer is composed by various parts under different OSS licenses:
+
+The pathes to QEMU related to QEMU-AddressSanitizer are licensed under the
+GNU General Public License, version 2.
+
+Those patches belongs to Andrea Fioraldi (C) 2019-2020.
+
+A copy of the GNU GPL 2 is in qemu/COPYING.
+
+The patches and the headers related to the AFLplusplus project are licensed
+under the Apache 2 license and are under the copyright of the authors.
+
+libqasan and the other additional files not related to QEMU are licensed under
+the BSD 2-Clause License and are a trademark of Andrea Fioraldi (C) 2019-2020.
