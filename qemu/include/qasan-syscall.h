@@ -126,7 +126,7 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         return __interceptor_strcasecmp(g2h(arg1), g2h(arg2));
         
         case QASAN_ACTION_STRCAT:
-        return __interceptor_strcat(g2h(arg1), g2h(arg2));
+        return __interceptor_strcat(g2h(arg1), g2h(arg2));	
         
         case QASAN_ACTION_STRCMP:
         return __interceptor_strcmp(g2h(arg1), g2h(arg2));
@@ -150,13 +150,19 @@ static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
         
         case QASAN_ACTION_STRNCMP:
         return __interceptor_strncmp(g2h(arg1), g2h(arg2), arg3);
-        
+       
+        case QASAN_ACTION_STRNCAT:
+        return __interceptor_strncat(g2h(arg1), g2h(arg2), arg3);
+
         case QASAN_ACTION_STRNCPY:
         return h2g(__interceptor_strncpy(g2h(arg1), g2h(arg2), arg3));
         
         case QASAN_ACTION_STRNLEN:
         return __interceptor_strnlen(g2h(arg1), arg2);
         
+        case QASAN_ACTION_STRRCHR:
+        return __interceptor_strrchr(g2h(arg1), arg2);
+
         default:
         QASAN_LOG("Invalid QASAN action %d\n", action);
         abort();

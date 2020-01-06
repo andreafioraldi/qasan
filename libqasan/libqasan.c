@@ -31,6 +31,7 @@
 #include <signal.h>
 #include <ucontext.h>
 #include <inttypes.h>
+#include <dlfcn.h>
 
 #define DEBUG
 #include "qasan.h"
@@ -39,6 +40,8 @@
 #define CHECK_STORE(ptr, len) syscall(QASAN_FAKESYS_NR, QASAN_ACTION_CHECK_STORE, ptr, len)
 
 int __qasan_debug;
+
+char *(*__libc_fgets)(char *, int, FILE *);
 
 void print_maps(void) {
 
@@ -119,6 +122,8 @@ __attribute__((constructor)) void __libqasan_init() {
 
   __qasan_debug = getenv("QASAN_DEBUG") != NULL;
 
+  __libc_fgets = (void*)dlsym(RTLD_NEXT, "fgets");
+
   QASAN_LOG("QEMU-AddressSanitizer (v%s)\n", QASAN_VERSTR);
   QASAN_LOG("Copyright (C) 2019 Andrea Fioraldi <andreafioraldi@gmail.com>\n");
   QASAN_LOG("\n");
@@ -144,6 +149,13 @@ __attribute__((constructor)) void __libqasan_init() {
 
 }
 
+char *fgets(char *s, int size, FILE *stream) {
+
+ CHECK_STORE(s, size);
+ CHECK_LOAD(stream, sizeof(FILE));
+ return __libc_fgets(s, size, stream);
+
+}
 
 size_t malloc_usable_size (void * ptr) {
 
@@ -443,6 +455,18 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 
 }
 
+char *strncat(char *dest, const char *src, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strncat(%p, %p, %ld)\n", rtv, dest, src, n);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRNCAT, dest, src, n);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
 char *strncpy(char *dest, const char *src, size_t n) {
 
   void * rtv = __builtin_return_address(0);
@@ -463,6 +487,54 @@ size_t strnlen(const char *s, size_t n) {
   size_t r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRNLEN, s, n);
   QASAN_LOG("\t\t = %ld\n", r);
   
+  return r;
+
+}
+
+char *strrchr(const char *s, int c) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strrchr(%p, %d)\n", rtv, s, c);
+  void * r = (void*)syscall(QASAN_FAKESYS_NR, QASAN_ACTION_STRRCHR, s, c);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+int atoi(const char *nptr) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: atoi(%p)\n", rtv, nptr);
+  int r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_ATOI, nptr);
+  QASAN_LOG("\t\t = %d\n", r);
+
+  return r;
+
+}
+
+long atol(const char *nptr) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: atol(%p)\n", rtv, nptr);
+  long r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_ATOL, nptr);
+  QASAN_LOG("\t\t = %d\n", r);
+
+  return r;
+
+}
+
+long long atoll(const char *nptr) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: atoll(%p)\n", rtv, nptr);
+  long long r = syscall(QASAN_FAKESYS_NR, QASAN_ACTION_ATOLL, nptr);
+  QASAN_LOG("\t\t = %d\n", r);
+
   return r;
 
 }
