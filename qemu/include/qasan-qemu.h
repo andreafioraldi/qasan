@@ -50,13 +50,10 @@ int __interceptor_strncmp(const char *s1, const char *s2, size_t n);
 char * __interceptor_strncpy(char *dest, const char *src, size_t n);
 size_t __interceptor_strnlen(const char *s, size_t n);
 
-static abi_long qasan_fake_syscall(abi_long action, abi_long arg1,
-                    abi_long arg2, abi_long arg3, abi_long arg4,
-                    abi_long arg5, abi_long arg6, abi_long arg7);
-
 extern __thread int cur_block_is_good;
 
-// TODO collapse into a macro
+abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
+                                  abi_long arg2, abi_long arg3);
 
 void qasan_gen_load1(TCGv_ptr ptr, int off);
 void qasan_gen_load2(TCGv_ptr ptr, int off);

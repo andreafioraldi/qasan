@@ -261,6 +261,8 @@ DEF_HELPER_FLAGS_4(gvec_leu16, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
 DEF_HELPER_FLAGS_4(gvec_leu32, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
 DEF_HELPER_FLAGS_4(gvec_leu64, TCG_CALL_NO_RWG, void, ptr, ptr, ptr, i32)
 
+DEF_HELPER_FLAGS_4(qasan_fake_instr, TCG_CALL_NO_RWG, ptr, ptr, ptr, ptr, ptr)
+
 DEF_HELPER_FLAGS_2(qasan_load1, TCG_CALL_NO_RWG, void, ptr, i32)
 DEF_HELPER_FLAGS_2(qasan_load2, TCG_CALL_NO_RWG, void, ptr, i32)
 DEF_HELPER_FLAGS_2(qasan_load4, TCG_CALL_NO_RWG, void, ptr, i32)

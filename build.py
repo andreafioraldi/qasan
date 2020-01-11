@@ -191,8 +191,12 @@ libqasan_cflags = ""
 if arch == "i386":
     libqasan_cflags = "-m32"
 
-assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s'"""
-  % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags)) == 0 )
+libqasan_target = "arch_other"
+if arch in ("i386", "x86_64"):
+    libqasan_target = "arch_%s" % arch
+
+assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s' %s"""
+  % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags, libqasan_target)) == 0 )
 
 shutil.copy2(
   os.path.join(dir_path, "libqasan", "libqasan.so"),
