@@ -30,11 +30,15 @@
 
 # void* qasan_backdoor(int, void*, void*, void*)
 qasan_backdoor:
-  mov eax, [esp+4]  # action
-  mov edi, [esp+8]  # arg1
-  mov esi, [esp+12] # arg2
-  mov edx, [esp+16] # arg3
+  push edi
+  push esi
+  mov eax, [esp+12] # action
+  mov edi, [esp+16] # arg1
+  mov esi, [esp+18] # arg2
+  mov edx, [esp+24] # arg3
   .byte 0x0f
   .byte 0x3a
   .byte 0xf2
+  pop esi
+  pop edi
   ret
