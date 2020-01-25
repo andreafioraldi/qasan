@@ -176,8 +176,8 @@ void HELPER(exit_atomic)(CPUArchState *env)
 
 int __qasan_debug;
 
-abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
-                                         abi_long arg2, abi_long arg3) {
+target_long qasan_actions_dispatcher(target_long action, target_long arg1,
+                                     target_long arg2, target_long arg3) {
 
     /* TODO hack return address and AsanThread stack_top/bottom to get
        meaningful stacktraces in report.
@@ -215,21 +215,21 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
         return __interceptor_malloc_usable_size(g2h(arg1));
         
         case QASAN_ACTION_MALLOC: {
-            abi_long r = h2g(__interceptor_malloc(arg1));
+            target_long r = h2g(__interceptor_malloc(arg1));
             if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
                                   PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
         case QASAN_ACTION_CALLOC: {
-            abi_long r = h2g(__interceptor_calloc(arg1, arg2));
+            target_long r = h2g(__interceptor_calloc(arg1, arg2));
             if (r) page_set_flags(r - HEAP_PAD, r + (arg1 * arg2) + HEAP_PAD,
                                   PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
         case QASAN_ACTION_REALLOC: {
-            abi_long r = h2g(__interceptor_malloc(arg2));
+            target_long r = h2g(__interceptor_malloc(arg2));
             if (r) {
               page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
                              PROT_READ | PROT_WRITE | PAGE_VALID);
@@ -238,7 +238,7 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
               __asan_memcpy(g2h(r), g2h(arg1), l);
             }
             __interceptor_free(g2h(arg1));
-            /*abi_long r = h2g(__interceptor_realloc(g2h(arg1), arg2));
+            /*target_long r = h2g(__interceptor_realloc(g2h(arg1), arg2));
             if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
                                   PROT_READ | PROT_WRITE | PAGE_VALID);*/
             return r;
@@ -246,7 +246,7 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
         
         case QASAN_ACTION_POSIX_MEMALIGN: {
             void ** memptr = (void **)g2h(arg1);
-            abi_long r = __interceptor_posix_memalign(memptr, arg2, arg3);
+            target_long r = __interceptor_posix_memalign(memptr, arg2, arg3);
             if (*memptr) {
               *memptr = h2g(*memptr);
               page_set_flags(*memptr - HEAP_PAD, *memptr + arg2 + HEAP_PAD,
@@ -256,28 +256,28 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
         }
         
         case QASAN_ACTION_MEMALIGN: {
-            abi_long r = h2g(__interceptor_memalign(arg1, arg2));
+            target_long r = h2g(__interceptor_memalign(arg1, arg2));
             if (r) page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
                                   PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
         case QASAN_ACTION_ALIGNED_ALLOC: {
-            abi_long r = h2g(__interceptor_aligned_alloc(arg1, arg2));
+            target_long r = h2g(__interceptor_aligned_alloc(arg1, arg2));
             if (r) page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
                                   PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
         case QASAN_ACTION_VALLOC: {
-            abi_long r = h2g(__interceptor_valloc(arg1));
+            target_long r = h2g(__interceptor_valloc(arg1));
             if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
                                   PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
         }
         
         case QASAN_ACTION_PVALLOC: {
-            abi_long r = h2g(__interceptor_pvalloc(arg1));
+            target_long r = h2g(__interceptor_pvalloc(arg1));
             if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
                                   PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
@@ -305,8 +305,17 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
         case QASAN_ACTION_STRCASECMP:
         return __interceptor_strcasecmp(g2h(arg1), g2h(arg2));
         
-        case QASAN_ACTION_STRCAT:
-        return __interceptor_strcat(g2h(arg1), g2h(arg2));	
+        case QASAN_ACTION_STRCAT: {
+          // return h2g(__interceptor_strcat(g2h(arg1), g2h(arg2)));
+          size_t l1 = strlen(g2h(arg1));
+          size_t l2 = strlen(g2h(arg2));
+          __asan_loadN(g2h(arg2), l2);
+          if (l2) {
+            __asan_loadN(g2h(arg1), l1);
+            __asan_storeN(g2h(arg1) +l1, l2 +1);
+          }
+          return h2g(strcat(g2h(arg1), g2h(arg2)));
+        }
         
         case QASAN_ACTION_STRCMP:
         return __interceptor_strcmp(g2h(arg1), g2h(arg2));
@@ -316,7 +325,7 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
         
         case QASAN_ACTION_STRDUP: {
             size_t l = __interceptor_strlen(g2h(arg1));
-            abi_long r = h2g(__interceptor_strdup(g2h(arg1)));
+            target_long r = h2g(__interceptor_strdup(g2h(arg1)));
             if (r) page_set_flags(r - HEAP_PAD, r + l + HEAP_PAD, 
                                   PROT_READ | PROT_WRITE | PAGE_VALID);
             return r;
@@ -341,7 +350,16 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
         return __interceptor_strnlen(g2h(arg1), arg2);
         
         case QASAN_ACTION_STRRCHR:
-        return __interceptor_strrchr(g2h(arg1), arg2);
+        return h2g(__interceptor_strrchr(g2h(arg1), arg2));
+        
+        case QASAN_ACTION_ATOI:
+        return __interceptor_atoi(g2h(arg1));
+        
+        case QASAN_ACTION_ATOL:
+        return __interceptor_atol(g2h(arg1));
+        
+        case QASAN_ACTION_ATOLL:
+        return __interceptor_atoll(g2h(arg1));
 
         default:
         QASAN_LOG("Invalid QASAN action %d\n", action);
@@ -354,63 +372,63 @@ abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
 void* HELPER(qasan_fake_instr)(void* action, void* arg1, void* arg2,
                                void* arg3) {
 
-  return (void*)qasan_actions_dispatcher((abi_ulong)action, (abi_ulong)arg1,
-                                         (abi_ulong)arg2, (abi_ulong)arg3);
+  return (void*)qasan_actions_dispatcher((target_long)action, (target_long)arg1,
+                                         (target_long)arg2, (target_long)arg3);
 
 }
 
 void HELPER(qasan_load1)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_load1(addr);
 
 }
 
 void HELPER(qasan_load2)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_load2(addr);
 
 }
 
 void HELPER(qasan_load4)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_load4(addr);
 
 }
 
 void HELPER(qasan_load8)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_load8(addr);
 
 }
 
 void HELPER(qasan_store1)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_store1(addr);
 
 }
 
 void HELPER(qasan_store2)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_store2(addr);
 
 }
 
 void HELPER(qasan_store4)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_store4(addr);
 
 }
 
 void HELPER(qasan_store8)(void * ptr, uint32_t off) {
 
-  abi_ulong addr = (abi_ulong)ptr + off;
+  uintptr_t addr = g2h((target_long)ptr + off);
   __asan_store8(addr);
 
 }

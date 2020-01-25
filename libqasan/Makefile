@@ -1,11 +1,18 @@
 CC := clang-8
+CFLAGS += -Wno-int-to-void-pointer-cast -ggdb
+LDFLAGS += -ldl
 
-arch_i386:
-	$(CC) $(CFLAGS) -fPIC -shared -I ../include libqasan.c backdoor_i386.s -o libqasan.so -ldl $(LDFLAGS)
+SRC := libqasan.c hooks.c
+HDR := libqasan.h
 
-arch_x86_64:
-	$(CC) $(CFLAGS) -fPIC -shared -I ../include libqasan.c backdoor_x86_64.s -o libqasan.so -ldl $(LDFLAGS)
+all: arch_x86_64
 
-arch_other:
-	$(CC) $(CFLAGS) -fPIC -shared -I ../include libqasan.c -o libqasan.so -ldl $(LDFLAGS)
+arch_i386: $(HDR) $(SRC) backdoor_i386.s
+	$(CC) $(CFLAGS) -fPIC -shared -I ../include $(SRC) backdoor_i386.s -o libqasan.so $(LDFLAGS)
+
+arch_x86_64: $(HDR) $(SRC) backdoor_x86_64.s
+	$(CC) $(CFLAGS) -fPIC -shared -I ../include $(SRC) backdoor_x86_64.s -o libqasan.so $(LDFLAGS)
+
+arch_other: $(HDR) $(SRC)
+	$(CC) $(CFLAGS) -fPIC -shared -I ../include $(SRC) -o libqasan.so $(LDFLAGS)
 

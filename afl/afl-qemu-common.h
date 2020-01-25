@@ -60,9 +60,9 @@
 
 extern unsigned char *afl_area_ptr;
 extern unsigned int   afl_inst_rms;
-extern abi_ulong      afl_start_code, afl_end_code;
-extern abi_ulong      afl_persistent_addr;
-extern abi_ulong      afl_persistent_ret_addr;
+extern target_ulong   afl_start_code, afl_end_code;
+extern target_ulong   afl_persistent_addr;
+extern target_ulong   afl_persistent_ret_addr;
 extern u8             afl_compcov_level;
 extern unsigned char  afl_fork_child;
 extern unsigned char  is_persistent;
@@ -72,7 +72,7 @@ extern unsigned char  persistent_save_gpr;
 extern target_ulong   persistent_saved_gpr[AFL_REGS_NUM];
 extern int            persisent_retaddr_offset;
 
-extern __thread abi_ulong afl_prev_loc;
+extern __thread target_ulong afl_prev_loc;
 
 void afl_debug_dump_saved_regs();
 

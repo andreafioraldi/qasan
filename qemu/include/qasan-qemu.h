@@ -49,11 +49,15 @@ int __interceptor_strncasecmp(const char *s1, const char *s2, size_t n);
 int __interceptor_strncmp(const char *s1, const char *s2, size_t n);
 char * __interceptor_strncpy(char *dest, const char *src, size_t n);
 size_t __interceptor_strnlen(const char *s, size_t n);
+char * __interceptor_strrchr(const char *s, int c);
+int __interceptor_atoi(const char *nptr);
+long __interceptor_atol(const char *nptr);
+long long __interceptor_atoll(const char *nptr);
 
 extern __thread int cur_block_is_good;
 
-abi_long qasan_actions_dispatcher(abi_long action, abi_long arg1,
-                                  abi_long arg2, abi_long arg3);
+target_long qasan_actions_dispatcher(target_long action, target_long arg1,
+                                     target_long arg2, target_long arg3);
 
 void qasan_gen_load1(TCGv_ptr ptr, int off);
 void qasan_gen_load2(TCGv_ptr ptr, int off);

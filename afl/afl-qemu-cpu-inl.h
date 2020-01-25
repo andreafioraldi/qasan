@@ -70,16 +70,16 @@ unsigned char *afl_area_ptr = dummy;          /* Exported for afl_gen_trace */
 
 /* Exported variables populated by the code patched into elfload.c: */
 
-abi_ulong afl_entry_point,                      /* ELF entry point (_start) */
+target_ulong afl_entry_point,                      /* ELF entry point (_start) */
     afl_start_code,                             /* .text start pointer      */
     afl_end_code;                               /* .text end pointer        */
 
-abi_ulong    afl_persistent_addr, afl_persistent_ret_addr;
+target_ulong    afl_persistent_addr, afl_persistent_ret_addr;
 unsigned int afl_persistent_cnt;
 
 u8 afl_compcov_level;
 
-__thread abi_ulong afl_prev_loc;
+__thread target_ulong afl_prev_loc;
 
 /* Set in the child process in forkserver mode: */
 
@@ -185,7 +185,7 @@ static void afl_setup(void) {
   if (getenv("AFL_INST_LIBS")) {
 
     afl_start_code = 0;
-    afl_end_code = (abi_ulong)-1;
+    afl_end_code = (target_ulong)-1;
 
   }
 

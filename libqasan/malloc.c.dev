@@ -1,0 +1,150 @@
+/*
+  Copyright (c) 2019-2020, Andrea Fioraldi
+
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+     list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#include "libqasan.h"
+#include <errno.h>
+
+#define REDZONE_SIZE 64
+
+size_t __libqasan_malloc_usable_size(void * ptr) {
+
+  if (!__lq_libc_malloc_usable_size) __libqasan_init_malloc();
+  
+  unsigned char* p = ptr;
+  p -= REDZONE_SIZE;
+  
+  return __lq_libc_malloc_usable_size(p);
+
+}
+
+void * __libqasan_malloc(size_t size) {
+
+  if (!__lq_libc_malloc) __libqasan_init_malloc();
+
+  unsigned char* p = __lq_libc_malloc(size + REDZONE_SIZE*2);
+  if (!p) return NULL;
+  
+  QASAN_POISON(p, REDZONE_SIZE);
+  QASAN_UNPOISON(p + REDZONE_SIZE, size);
+  QASAN_POISON(p + REDZONE_SIZE + size, REDZONE_SIZE);
+  
+  __builtin_memset(p + REDZONE_SIZE, 0xff, size);
+
+  return p + REDZONE_SIZE; 
+
+}
+
+void __libqasan_free(void * ptr) {
+
+  if (!__lq_libc_free) __libqasan_init_malloc();
+
+  unsigned char* p = ptr;
+  p -= REDZONE_SIZE;
+  
+  size_t size = __lq_libc_malloc_usable_size(p);
+
+  QASAN_STORE(ptr, size);
+  QASAN_UNPOISON(p, size + REDZONE_SIZE*2);
+
+  __lq_libc_free(p);
+  
+  //QASAN_POISON(ptr, size); // metadata are in the redzone that is not poisoned
+
+}
+
+void * __libqasan_calloc(size_t nmemb, size_t size) {
+
+  size *= nmemb;
+  unsigned char* p = __lq_libc_malloc(size + REDZONE_SIZE*2);
+  if (!p) return NULL;
+  
+  QASAN_POISON(p, REDZONE_SIZE);
+  QASAN_POISON(p + REDZONE_SIZE + size, REDZONE_SIZE);
+  
+  __builtin_memset(p + REDZONE_SIZE, 0, size);
+
+  return p + REDZONE_SIZE; 
+
+}
+
+void * __libqasan_realloc(void* ptr, size_t size) {
+
+  if (!__lq_libc_malloc) __libqasan_init_malloc();
+
+  void * p = __libqasan_malloc(size);
+  if (!p) return NULL;
+  
+  size_t n = __libqasan_malloc_usable_size(ptr);
+  if (size < n) n = size;
+
+  __builtin_memcpy(p, ptr, n);
+  
+  __libqasan_free(ptr);
+  return p;
+
+}
+
+int __libqasan_posix_memalign(void** ptr, size_t align, size_t len) {
+
+  if ((align % 2) || (align % sizeof(void*)))
+    return EINVAL;
+  if (len == 0) {
+
+    *ptr = NULL;
+    return 0;
+
+  }
+
+  size_t rem = len % align;
+  if (rem) len += align - rem;
+
+  *ptr = __libqasan_malloc(len);
+
+  return 0;
+
+}
+
+void* __libqasan_memalign(size_t align, size_t len) {
+
+  void* ret = NULL;
+
+  posix_memalign(&ret, align, len);
+
+  return ret;
+
+}
+
+void* __libqasan_aligned_alloc(size_t align, size_t len) {
+
+  void* ret = NULL;
+
+  if ((len % align)) return NULL;
+
+  posix_memalign(&ret, align, len);
+
+  return ret;
+
+}
+

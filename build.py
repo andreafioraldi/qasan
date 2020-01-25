@@ -74,6 +74,7 @@ opt = argparse.ArgumentParser(description=DESCR, epilog=EPILOG, formatter_class=
 opt.add_argument("--arch", help="Set target architecture (default x86_64)", action='store', default="x86_64")
 opt.add_argument('--asan-dso', help="Path to ASan DSO", action='store', required=("--clean" not in sys.argv))
 opt.add_argument("--clean", help="Clean builded files", action='store_true')
+opt.add_argument("--system", help="(eperimental) Build qemu-system", action='store_true')
 opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', default="clang-8")
 opt.add_argument("--cxx", help="C++ compiler (default clang++-8)", action='store', default="clang++-8")
 opt.add_argument("--cross", help="Cross C compiler for libqasan", action='store')
@@ -165,44 +166,62 @@ def deintercept(asan_dso, output_dso):
 
 deintercept(args.asan_dso, output_dso)
 
-cpu_qemu_flag = ""
-if arch in ARCHS_32:
-    cpu_qemu_flag = "--cpu=i386"
+if not args.system:
+    cpu_qemu_flag = ""
+    if arch in ARCHS_32:
+        cpu_qemu_flag = "--cpu=i386"
+        print("")
+        print("WARNING: To do a 32 bit build, you have to install i386 libraries and set PKG_CONFIG_PATH")
+        print("If you haven't did it yet, on Ubuntu 18.04 it is PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig")
+        print("")
+
+    assert ( os.system("""cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
+      --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb" %s \
+      --extra-ldflags="-L %s -l%s -Wl,-rpath,.,-rpath,%s" \
+      --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-strip"""
+      % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx, cpu_qemu_flag,
+         dir_path, lib_dso, dir_path)) == 0 )
+
+    assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
+
+    shutil.copy2(
+      os.path.join(dir_path, "qemu", arch + "-linux-user", "qemu-" + arch),
+      os.path.join(dir_path, "qasan-qemu")
+    )
+
+    libqasan_cflags = ""
+    if arch == "i386":
+        libqasan_cflags = "-m32"
+
+    libqasan_target = "arch_other"
+    if arch in ("i386", "x86_64"):
+        libqasan_target = "arch_%s" % arch
+
+    assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s' %s"""
+      % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags, libqasan_target)) == 0 )
+
+    shutil.copy2(
+      os.path.join(dir_path, "libqasan", "libqasan.so"),
+      dir_path
+    )
+
+    print("Successful build.")
+    print("Test it with ./qasan /bin/ls")
     print("")
-    print("WARNING: To do a 32 bit build, you have to install i386 libraries and set PKG_CONFIG_PATH")
-    print("If you haven't did it yet, on Ubuntu 18.04 it is PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig")
+else:
+    assert ( os.system("""cd '%s' ; ./configure --target-list="%s-softmmu" --enable-pie \
+      --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb" \
+      --extra-ldflags="-L %s -l%s -Wl,-rpath,.,-rpath,%s" \
+      --disable-linux-user --disable-sdl --disable-vnc --disable-strip"""
+      % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx,
+         dir_path, lib_dso, dir_path)) == 0 )
+    
+    assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
+    
+    shutil.copy2(
+      os.path.join(dir_path, "qemu", arch + "-softmmu", "qemu-system-" + arch),
+      os.path.join(dir_path, "qasan-qemu-system")
+    )
+
+    print("Successful build.")
     print("")
-
-assert ( os.system("""cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
-  --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb" %s \
-  --extra-ldflags="-L %s -l%s -Wl,-rpath,.,-rpath,%s" \
-  --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-strip"""
-  % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx, cpu_qemu_flag,
-     dir_path, lib_dso, dir_path)) == 0 )
-
-assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
-
-shutil.copy2(
-  os.path.join(dir_path, "qemu", arch + "-linux-user", "qemu-" + arch),
-  os.path.join(dir_path, "qasan-qemu")
-)
-
-libqasan_cflags = ""
-if arch == "i386":
-    libqasan_cflags = "-m32"
-
-libqasan_target = "arch_other"
-if arch in ("i386", "x86_64"):
-    libqasan_target = "arch_%s" % arch
-
-assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s' %s"""
-  % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags, libqasan_target)) == 0 )
-
-shutil.copy2(
-  os.path.join(dir_path, "libqasan", "libqasan.so"),
-  dir_path
-)
-
-print("Successful build.")
-print("Test it with ./qasan /bin/ls")
-print("")
