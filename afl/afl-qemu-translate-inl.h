@@ -55,7 +55,11 @@ static void afl_gen_trace(target_ulong cur_loc) {
   cur_block_is_good = cur_loc >= afl_start_code && cur_loc < afl_end_code;
 
   if (!cur_block_is_good)
+#ifdef CONFIG_USER_ONLY
     return;
+#else
+  { cur_block_is_good = 1; return; }
+#endif
 
   /* Looks like QEMU always maps to fixed locations, so ASLR is not a
      concern. Phew. But instruction addresses may be aligned. Let's mangle

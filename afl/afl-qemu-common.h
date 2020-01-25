@@ -95,6 +95,7 @@ void afl_float_compcov_log_80(target_ulong cur_loc, floatx80 arg1,
 
 static inline int is_valid_addr(target_ulong addr) {
 
+#if defined(CONFIG_USER_ONLY)
   int          l, flags;
   target_ulong page;
   void *       p;
@@ -106,6 +107,10 @@ static inline int is_valid_addr(target_ulong addr) {
   if (!(flags & PAGE_VALID) || !(flags & PAGE_READ)) return 0;
 
   return 1;
+#else
+  // only for x86 shit, from TriforceAFL
+  return addr >= 0xffffffff81000000 && addr <= 0xffffffff81ffffff;
+#endif
 
 }
 

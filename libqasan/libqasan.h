@@ -40,7 +40,7 @@
 #define DEBUG
 #include "qasan.h"
 
-#if __x86_64__ || __i386__
+#if __x86_64__ // || __i386__ // TODO adjust x86 backdoor
 
 // The backdoor is more performant than the fake syscall
 void* qasan_backdoor(int, void*, void*, void*);

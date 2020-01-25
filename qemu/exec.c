@@ -3351,6 +3351,59 @@ MemTxResult address_space_read_full(AddressSpace *as, hwaddr addr,
     return result;
 }
 
+hwaddr qasan_addr_to_phys(CPUState* cpu, target_ulong addr) {
+
+    MemTxAttrs attrs;
+
+    target_ulong page = addr & TARGET_PAGE_MASK;
+    hwaddr phys_addr = cpu_get_phys_page_attrs_debug(cpu, page, &attrs);
+    /* if no physical page mapped, return an error */
+    if (phys_addr == -1)
+        return -1;
+    phys_addr += (addr & ~TARGET_PAGE_MASK);
+    return phys_addr;
+
+}
+
+int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr) {
+
+    MemTxAttrs attrs;
+
+    target_ulong page = addr & TARGET_PAGE_MASK;
+    hwaddr phys_addr = cpu_get_phys_page_attrs_debug(cpu, page, &attrs);
+    int asidx = cpu_asidx_from_attrs(cpu, attrs);
+    /* if no physical page mapped, return an error */
+    if (phys_addr == -1)
+        return 0;
+    phys_addr += (addr & ~TARGET_PAGE_MASK);
+
+    // fprintf(stderr, "%p -> %p\n", addr, phys_addr);
+
+    FlatView *fv;
+    AddressSpace *as = cpu->cpu_ases[asidx].as;
+
+    hwaddr l;
+    hwaddr addr1;
+    MemoryRegion *mr;
+
+    rcu_read_lock();
+    fv = address_space_to_flatview(as);
+    mr = flatview_translate(fv, phys_addr, &addr1, &l, false, attrs);
+
+    if (!memory_access_is_direct(mr, false)) {
+        /* I/O case */
+        rcu_read_unlock();
+        return 0;
+    } else {
+        /* RAM case */
+        *host_addr = qemu_map_ram_ptr(mr->ram_block, addr1);
+    }
+
+    rcu_read_unlock();
+
+    return 1;
+}
+
 MemTxResult address_space_write(AddressSpace *as, hwaddr addr,
                                 MemTxAttrs attrs,
                                 const uint8_t *buf, int len)

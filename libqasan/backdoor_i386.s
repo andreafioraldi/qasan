@@ -34,7 +34,7 @@ qasan_backdoor:
   push esi
   mov eax, [esp+12] # action
   mov edi, [esp+16] # arg1
-  mov esi, [esp+18] # arg2
+  mov esi, [esp+20] # arg2
   mov edx, [esp+24] # arg3
   .byte 0x0f
   .byte 0x3a

@@ -174,9 +174,24 @@ void HELPER(exit_atomic)(CPUArchState *env)
 
 #include "qasan-qemu.h"
 
+#ifndef CONFIG_USER_ONLY
+#define g2h(x) \
+  ({ \
+    void *_a; \
+    if (!qasan_addr_to_host(cpu, (x), &_a)) \
+      return (target_ulong)-1; \
+    _a; \
+  })
+// h2g must not be defined
+// #define h2g(x) (x)
+#endif
+
+int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
+
 int __qasan_debug;
 
-target_long qasan_actions_dispatcher(target_long action, target_long arg1,
+target_long qasan_actions_dispatcher(CPUState *cpu,
+                                     target_long action, target_long arg1,
                                      target_long arg2, target_long arg3) {
 
     /* TODO hack return address and AsanThread stack_top/bottom to get
@@ -210,7 +225,8 @@ target_long qasan_actions_dispatcher(target_long action, target_long arg1,
         case QASAN_ACTION_UNPOISON:
         __asan_unpoison_memory_region(g2h(arg1), arg2);
         break;
-        
+
+#if defined(CONFIG_USER_ONLY)        
         case QASAN_ACTION_MALLOC_USABLE_SIZE:
         return __interceptor_malloc_usable_size(g2h(arg1));
         
@@ -306,6 +322,7 @@ target_long qasan_actions_dispatcher(target_long action, target_long arg1,
         return __interceptor_strcasecmp(g2h(arg1), g2h(arg2));
         
         case QASAN_ACTION_STRCAT: {
+          // TODO fixme: strange stuffs happens when using ASan strcat...
           // return h2g(__interceptor_strcat(g2h(arg1), g2h(arg2)));
           size_t l1 = strlen(g2h(arg1));
           size_t l2 = strlen(g2h(arg2));
@@ -360,6 +377,7 @@ target_long qasan_actions_dispatcher(target_long action, target_long arg1,
         
         case QASAN_ACTION_ATOLL:
         return __interceptor_atoll(g2h(arg1));
+#endif
 
         default:
         QASAN_LOG("Invalid QASAN action %d\n", action);
@@ -369,66 +387,84 @@ target_long qasan_actions_dispatcher(target_long action, target_long arg1,
     return 0;
 }
 
-void* HELPER(qasan_fake_instr)(void* action, void* arg1, void* arg2,
-                               void* arg3) {
+void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
+                               void* arg2, void* arg3) {
 
-  return (void*)qasan_actions_dispatcher((target_long)action, (target_long)arg1,
+  CPUState *cpu = ENV_GET_CPU(env);
+  return (void*)qasan_actions_dispatcher(cpu,
+                                         (target_long)action, (target_long)arg1,
                                          (target_long)arg2, (target_long)arg3);
 
 }
 
-void HELPER(qasan_load1)(void * ptr, uint32_t off) {
+#ifndef CONFIG_USER_ONLY
+#undef g2h
+#define g2h(x) \
+  ({ \
+    void *_a; \
+    if (!qasan_addr_to_host(ENV_GET_CPU(env), (x), &_a)) \
+      return; \
+    _a; \
+  })
+// h2g must not be defined
+// #define h2g(x) (x)
+#endif
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+// TODO find what "off" really does
+
+void HELPER(qasan_load1)(CPUArchState *env, void * ptr, uint32_t off) {
+
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_load1(addr);
 
 }
 
-void HELPER(qasan_load2)(void * ptr, uint32_t off) {
+void HELPER(qasan_load2)(CPUArchState *env, void * ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_load2(addr);
 
 }
 
-void HELPER(qasan_load4)(void * ptr, uint32_t off) {
+void HELPER(qasan_load4)(CPUArchState *env, void * ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_load4(addr);
 
 }
 
-void HELPER(qasan_load8)(void * ptr, uint32_t off) {
+void HELPER(qasan_load8)(CPUArchState *env, void * ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+  uintptr_t addr = g2h((target_long)ptr);
+  
   __asan_load8(addr);
 
 }
 
-void HELPER(qasan_store1)(void * ptr, uint32_t off) {
+void HELPER(qasan_store1)(CPUArchState *env, void * ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store1(addr);
 
 }
 
-void HELPER(qasan_store2)(void * ptr, uint32_t off) {
+void HELPER(qasan_store2)(CPUArchState *env, void * ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store2(addr);
 
 }
 
-void HELPER(qasan_store4)(void * ptr, uint32_t off) {
+void HELPER(qasan_store4)(CPUArchState *env, void * ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store4(addr);
 
 }
 
-void HELPER(qasan_store8)(void * ptr, uint32_t off) {
+void HELPER(qasan_store8)(CPUArchState *env, void * ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr + off);
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store8(addr);
 
 }

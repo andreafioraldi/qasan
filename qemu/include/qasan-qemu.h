@@ -56,8 +56,9 @@ long long __interceptor_atoll(const char *nptr);
 
 extern __thread int cur_block_is_good;
 
-target_long qasan_actions_dispatcher(target_long action, target_long arg1,
-                                     target_long arg2, target_long arg3);
+target_long qasan_actions_dispatcher(CPUState* cpu, target_long action,
+                                     target_long arg1, target_long arg2,
+                                     target_long arg3);
 
 void qasan_gen_load1(TCGv_ptr ptr, int off);
 void qasan_gen_load2(TCGv_ptr ptr, int off);

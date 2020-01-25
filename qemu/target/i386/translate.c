@@ -4136,9 +4136,9 @@ static void gen_sse(CPUX86State *env, DisasContext *s, int b,
             
             if (b == 0xf2) {
                 /* QASAN backdoor */
-                gen_helper_qasan_fake_instr(cpu_regs[R_EAX], cpu_regs[R_EAX],
-                                            cpu_regs[R_EDI], cpu_regs[R_ESI],
-                                            cpu_regs[R_EDX]);
+                gen_helper_qasan_fake_instr(cpu_regs[R_EAX], cpu_env,
+                                            cpu_regs[R_EAX], cpu_regs[R_EDI],
+                                            cpu_regs[R_ESI], cpu_regs[R_EDX]);
                 break;
             }
 
