@@ -8,7 +8,7 @@
 
 #define HEAP_PAD 16
 
-#define SHADOW_BK_SIZE 1024
+#define SHADOW_BK_SIZE (4096*8)
 
 struct shadow_stack_block {
 

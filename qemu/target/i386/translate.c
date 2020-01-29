@@ -5071,6 +5071,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
                 tcg_gen_ext16u_tl(s->T0, s->T0);
             }
             next_eip = s->pc - s->cs_base;
+            gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
             tcg_gen_movi_tl(s->T1, next_eip);
             gen_push_v(s, s->T1);
             gen_op_jmp_v(s->T0);
@@ -5082,6 +5083,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             gen_add_A0_im(s, 1 << ot);
             gen_op_ld_v(s, MO_16, s->T0, s->A0);
         do_lcall:
+            gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
             if (s->pe && !s->vm86) {
                 tcg_gen_trunc_tl_i32(s->tmp2_i32, s->T0);
                 gen_helper_lcall_protected(cpu_env, s->tmp2_i32, s->T1,
@@ -6492,6 +6494,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
         ot = gen_pop_T0(s);
         gen_stack_update(s, val + (1 << ot));
         /* Note that gen_pop_T0 uses a zero-extending load.  */
+        gen_helper_qasan_shadow_stack_pop(s->T0);
         gen_op_jmp_v(s->T0);
         gen_bnd_jmp(s);
         gen_jr(s, s->T0);
@@ -6500,6 +6503,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
         ot = gen_pop_T0(s);
         gen_pop_update(s, ot);
         /* Note that gen_pop_T0 uses a zero-extending load.  */
+        gen_helper_qasan_shadow_stack_pop(s->T0);
         gen_op_jmp_v(s->T0);
         gen_bnd_jmp(s);
         gen_jr(s, s->T0);
@@ -6512,12 +6516,14 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             gen_jmp_im(s, pc_start - s->cs_base);
             gen_helper_lret_protected(cpu_env, tcg_const_i32(dflag - 1),
                                       tcg_const_i32(val));
+            // QASAN: TODO
         } else {
             gen_stack_A0(s);
             /* pop offset */
             gen_op_ld_v(s, dflag, s->T0, s->A0);
             /* NOTE: keeping EIP updated is not a problem in case of
                exception */
+            gen_helper_qasan_shadow_stack_pop(s->T0);
             gen_op_jmp_v(s->T0);
             /* pop selector */
             gen_add_A0_im(s, 1 << dflag);
@@ -6559,6 +6565,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
                 tval = (int16_t)insn_get(env, s, MO_16);
             }
             next_eip = s->pc - s->cs_base;
+            gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
             tval += next_eip;
             if (dflag == MO_16) {
                 tval &= 0xffff;

@@ -271,3 +271,6 @@ DEF_HELPER_FLAGS_3(qasan_store1, TCG_CALL_NO_RWG, void, env, ptr, i32)
 DEF_HELPER_FLAGS_3(qasan_store2, TCG_CALL_NO_RWG, void, env, ptr, i32)
 DEF_HELPER_FLAGS_3(qasan_store4, TCG_CALL_NO_RWG, void, env, ptr, i32)
 DEF_HELPER_FLAGS_3(qasan_store8, TCG_CALL_NO_RWG, void, env, ptr, i32)
+
+DEF_HELPER_FLAGS_1(qasan_shadow_stack_push, TCG_CALL_NO_RWG, void, tl)
+DEF_HELPER_FLAGS_1(qasan_shadow_stack_pop, TCG_CALL_NO_RWG, void, tl)
