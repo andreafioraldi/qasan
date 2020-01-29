@@ -72,7 +72,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 opt = argparse.ArgumentParser(description=DESCR, epilog=EPILOG, formatter_class=argparse.RawTextHelpFormatter)
 opt.add_argument("--arch", help="Set target architecture (default x86_64)", action='store', default="x86_64")
-opt.add_argument('--asan-dso', help="Path to ASan DSO", action='store', required=("--clean" not in sys.argv))
+opt.add_argument('--asan-dso', help="Path to ASan DSO", action='store')
 opt.add_argument("--clean", help="Clean builded files", action='store_true')
 opt.add_argument("--system", help="(eperimental) Build qemu-system", action='store_true')
 opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', default="clang-8")
@@ -116,35 +116,6 @@ if shutil.which(args.cxx) is None and not os.path.isfile(args.cxx):
     print("")
     exit(1)
 
-# on Ubuntu 18.04: /usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so
-if not os.path.isfile(args.asan_dso):
-    print("ERROR:", args.asan_dso, "not found.")
-    print("")
-    exit(1)
-
-output_dso = os.path.join(dir_path, os.path.basename(args.asan_dso))
-lib_dso = os.path.basename(args.asan_dso)
-if lib_dso.startswith("lib"): lib_dso = lib_dso[3:]
-if lib_dso.endswith(".so"): lib_dso = lib_dso[:-3]
-
-arch = ARCHS[args.arch]
-
-cross_cc = args.cc
-if arch in ARCHS_CROSS:
-    if args.cross is None:
-        cross_cc = "%s-linux-gnu-gcc" % arch
-        print("")
-        print("WARNING: The selected arch needs a cross compiler for libqasan")
-        print("We selected %s by default, use --cross to specify a custom one" % cross_cc)
-        print("")
-    else:
-        cross_cc = args.cross
-if shutil.which(cross_cc) is None:
-    print("ERROR:", cross_cc, " not found.")
-    print("Specify another Cross C compiler with --cross")
-    print("")
-    exit(1)
-
 def deintercept(asan_dso, output_dso):
     global arch
     print("Patching", asan_dso)
@@ -164,9 +135,62 @@ def deintercept(asan_dso, output_dso):
 
     lib.write(output_dso)
 
-deintercept(args.asan_dso, output_dso)
+arch = ARCHS[args.arch]
+
+extra_c_flags = ""
+if args.asan_dso:
+    # on Ubuntu 18.04: /usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so
+    if not os.path.isfile(args.asan_dso):
+        print("ERROR:", args.asan_dso, "not found.")
+        print("")
+        exit(1)
+
+    output_dso = os.path.join(dir_path, os.path.basename(args.asan_dso))
+    lib_dso = os.path.basename(args.asan_dso)
+    if lib_dso.startswith("lib"): lib_dso = lib_dso[3:]
+    if lib_dso.endswith(".so"): lib_dso = lib_dso[:-3]
+
+    extra_ld_flags = "-L %s -l%s -Wl,-rpath,.,-rpath,%s" % (dir_path, lib_dso, dir_path)
+    
+    deintercept(args.asan_dso, output_dso)
+else:
+    # if the ASan DSO is not specified, use asan-giovese
+    if arch not in ("x86_64", "i386"):
+        print("ERROR: asan-giovese is still not supported for %s." % arch)
+        print("Please specify the ASan DSO with --asan-dso")
+        print("")
+        exit(1)
+    
+    print("")
+    print("WARNING: QASan with asan-giovese is an higly experimental feature!")
+    print("")
+    
+    extra_ld_flags = ""
+    extra_c_flags = "-DASAN_GIOVESE=1 -DTARGET_ULONG=target_ulong -I " + os.path.join(dir_path, "asan-giovese", "interval-tree")
+
+cross_cc = args.cc
+if arch in ARCHS_CROSS:
+    if args.cross is None:
+        cross_cc = "%s-linux-gnu-gcc" % arch
+        print("")
+        print("WARNING: The selected arch needs a cross compiler for libqasan")
+        print("We selected %s by default, use --cross to specify a custom one" % cross_cc)
+        print("")
+    else:
+        cross_cc = args.cross
+if shutil.which(cross_cc) is None:
+    print("ERROR:", cross_cc, " not found.")
+    print("Specify another Cross C compiler with --cross")
+    print("")
+    exit(1)
 
 if not args.system:
+    if not args.asan_dso:
+        print("ERROR: usermode QASan still depends on ASan.")
+        print("Please specify the ASan DSO with --asan-dso")
+        print("")
+        exit(1)
+    
     cpu_qemu_flag = ""
     if arch in ARCHS_32:
         cpu_qemu_flag = "--cpu=i386"
@@ -176,11 +200,10 @@ if not args.system:
         print("")
 
     assert ( os.system("""cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
-      --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb" %s \
-      --extra-ldflags="-L %s -l%s -Wl,-rpath,.,-rpath,%s" \
+      --cc="%s" --cxx="%s" %s --extra-cflags="-O3 -ggdb %s" --extra-ldflags="%s" \
       --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-strip"""
       % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx, cpu_qemu_flag,
-         dir_path, lib_dso, dir_path)) == 0 )
+         extra_c_flags, extra_ld_flags)) == 0 )
 
     assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
 
@@ -210,11 +233,10 @@ if not args.system:
     print("")
 else:
     assert ( os.system("""cd '%s' ; ./configure --target-list="%s-softmmu" --enable-pie \
-      --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb" \
-      --extra-ldflags="-L %s -l%s -Wl,-rpath,.,-rpath,%s" \
+      --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb %s" --extra-ldflags="%s" \
       --disable-linux-user --disable-sdl --disable-vnc --disable-strip"""
       % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx,
-         dir_path, lib_dso, dir_path)) == 0 )
+         extra_c_flags, extra_ld_flags)) == 0 )
     
     assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
     

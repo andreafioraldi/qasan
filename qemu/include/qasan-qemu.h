@@ -8,6 +8,32 @@
 
 #define HEAP_PAD 16
 
+#define SHADOW_BK_SIZE 1024
+
+struct shadow_stack_block {
+
+  int index;
+  target_ulong buf[SHADOW_BK_SIZE];
+  
+  struct shadow_stack_block* next;
+
+};
+
+struct shadow_stack {
+
+  int size;
+  struct shadow_stack_block* first;
+
+};
+
+extern __thread struct shadow_stack qasan_shadow_stack;
+
+#ifdef ASAN_GIOVESE
+
+#include "../../asan-giovese/asan-giovese.h"
+
+#else
+
 void __asan_poison_memory_region(void const volatile *addr, size_t size);
 void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 
@@ -54,9 +80,11 @@ int __interceptor_atoi(const char *nptr);
 long __interceptor_atol(const char *nptr);
 long long __interceptor_atoll(const char *nptr);
 
+#endif
+
 extern __thread int cur_block_is_good;
 
-target_long qasan_actions_dispatcher(CPUState* cpu, target_long action,
+target_long qasan_actions_dispatcher(void *cpu_env, target_long action,
                                      target_long arg1, target_long arg2,
                                      target_long arg3);
 

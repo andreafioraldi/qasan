@@ -190,7 +190,53 @@ int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
 
 int __qasan_debug;
 
-target_long qasan_actions_dispatcher(CPUState *cpu,
+#ifdef ASAN_GIOVESE
+
+__thread struct shadow_stack qasan_shadow_stack;
+
+void asan_giovese_populate_context(struct call_context* ctx) {
+
+  ctx->addresses = calloc(sizeof(void*), qasan_shadow_stack.size);
+  ctx->size = qasan_shadow_stack.size;
+  ctx->tid = 0; // TODO
+  if (qasan_shadow_stack.size == 0) return;
+  
+  int i, j = 0;
+  for (i = 0; i < qasan_shadow_stack.first->index; ++i)
+    ctx->addresses[j++] = qasan_shadow_stack.first->buf[i];
+
+  struct shadow_stack_block* b = qasan_shadow_stack.first->next;
+  while (b) {
+  
+    for (i = 0; i < SHADOW_BK_SIZE; ++i)
+      ctx->addresses[j++] = b->buf[i];
+  
+  }
+
+}
+
+char* asan_giovese_printaddr(TARGET_ULONG guest_addr) {
+
+  return NULL;
+
+}
+
+#if defined(TARGET_X86_64) || defined(TARGET_I386)
+static void qasan_get_pc_bp_sp(CPUArchState *env, target_ulong* pc, target_ulong* bp, target_ulong* sp) {
+
+  *pc = env->eip;
+  *bp = env->regs[R_EBP];
+  *bp = env->regs[R_ESP];
+
+}
+#else
+#error "Target not supported by asan-giovese"
+#endif
+
+#endif
+
+
+target_long qasan_actions_dispatcher(void *cpu_env,
                                      target_long action, target_long arg1,
                                      target_long arg2, target_long arg3) {
 
@@ -208,8 +254,38 @@ target_long qasan_actions_dispatcher(CPUState *cpu,
         
     }
     */
+    
+    CPUArchState *env = cpu_env;
+    CPUState *cpu = ENV_GET_CPU(env);
 
     switch(action) {
+#ifdef ASAN_GIOVESE
+        case QASAN_ACTION_CHECK_LOAD:
+        if (asan_giovese_loadN(g2h(arg1), arg2)) {
+          target_ulong saved_pc, saved_bp, saved_sp;
+          qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, g2h(arg1), arg2,
+                                        arg1, saved_pc, saved_bp, saved_sp);
+        }
+        break;
+        
+        case QASAN_ACTION_CHECK_STORE:
+        if (asan_giovese_storeN(g2h(arg1), arg2)) {
+          target_ulong saved_pc, saved_bp, saved_sp;
+          qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, g2h(arg1), arg2,
+                                        arg1, saved_pc, saved_bp, saved_sp);
+        }
+        break;
+        
+        case QASAN_ACTION_POISON:
+        asan_giovese_user_poison_region(g2h(arg1), arg2);
+        break;
+        
+        case QASAN_ACTION_UNPOISON:
+        asan_giovese_unpoison_region(g2h(arg1), arg2);
+        break;
+#else
         case QASAN_ACTION_CHECK_LOAD:
         __asan_loadN(g2h(arg1), arg2);
         break;
@@ -378,7 +454,7 @@ target_long qasan_actions_dispatcher(CPUState *cpu,
         case QASAN_ACTION_ATOLL:
         return __interceptor_atoll(g2h(arg1));
 #endif
-
+#endif
         default:
         QASAN_LOG("Invalid QASAN action %d\n", action);
         abort();
@@ -390,8 +466,7 @@ target_long qasan_actions_dispatcher(CPUState *cpu,
 void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
                                void* arg2, void* arg3) {
 
-  CPUState *cpu = ENV_GET_CPU(env);
-  return (void*)qasan_actions_dispatcher(cpu,
+  return (void*)qasan_actions_dispatcher(env,
                                          (target_long)action, (target_long)arg1,
                                          (target_long)arg2, (target_long)arg3);
 
@@ -415,57 +490,135 @@ void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
 void HELPER(qasan_load1)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load1(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 1, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_load1(addr);
+#endif
 
 }
 
 void HELPER(qasan_load2)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load2(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 2, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_load2(addr);
+#endif
 
 }
 
 void HELPER(qasan_load4)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load4(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 4, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_load4(addr);
+#endif
 
 }
 
 void HELPER(qasan_load8)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
-  
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load8(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 8, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_load8(addr);
+#endif
 
 }
 
 void HELPER(qasan_store1)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store1(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 1, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_store1(addr);
+#endif
 
 }
 
 void HELPER(qasan_store2)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store2(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 2, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_store2(addr);
+#endif
 
 }
 
 void HELPER(qasan_store4)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store4(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 4, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_store4(addr);
+#endif
 
 }
 
 void HELPER(qasan_store8)(CPUArchState *env, void * ptr, uint32_t off) {
 
   uintptr_t addr = g2h((target_long)ptr);
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store8(addr)) {
+    target_ulong saved_pc, saved_bp, saved_sp;
+    qasan_get_pc_bp_sp(env, &saved_pc, &saved_bp, &saved_sp);
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 8, (target_long)ptr,
+                                  saved_pc, saved_bp, saved_sp);
+  }
+#else
   __asan_store8(addr);
+#endif
 
 }
 
+#ifdef ASAN_GIOVESE
+#include "../../asan-giovese/interval-tree/rbtree.c"
+#include "../../asan-giovese/alloc.c"
+#include "../../asan-giovese/init.c"
+#include "../../asan-giovese/poison.c"
+#include "../../asan-giovese/report.c"
+#endif
