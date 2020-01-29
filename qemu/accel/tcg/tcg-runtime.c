@@ -279,12 +279,37 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         break;
         
         case QASAN_ACTION_POISON:
+        fprintf(stderr, "POISON: %p (%p) %ld %x\n", arg1, g2h(arg1), arg2, arg3);
+        asan_giovese_poison_region(g2h(arg1), arg2, arg3);
+        break;
+        
+        case QASAN_ACTION_USER_POISON:
+        fprintf(stderr, "USER POISON: %p (%p) %ld\n", arg1, g2h(arg1), arg2);
         asan_giovese_user_poison_region(g2h(arg1), arg2);
         break;
         
         case QASAN_ACTION_UNPOISON:
+        fprintf(stderr, "UNPOISON: %p (%p) %ld\n", arg1, g2h(arg1), arg2);
         asan_giovese_unpoison_region(g2h(arg1), arg2);
         break;
+        
+        case QASAN_ACTION_ALLOC: {
+          fprintf(stderr, "ALLOC: %p - %p\n", arg1, arg2);
+          struct call_context* ctx = calloc(sizeof(struct call_context), 1);
+          asan_giovese_populate_context(ctx);
+          asan_giovese_alloc_insert(arg1, arg2, ctx);
+          break;
+        }
+        
+        case QASAN_ACTION_DEALLOC: {
+          fprintf(stderr, "DEALLOC: %p\n", arg1);
+          struct chunk_info* ckinfo = asan_giovese_alloc_search(arg1);
+          if (ckinfo) {
+            ckinfo->free_ctx = calloc(sizeof(struct call_context), 1);
+            asan_giovese_populate_context(ckinfo->free_ctx);
+          }
+          break;
+        }
 #else
         case QASAN_ACTION_CHECK_LOAD:
         __asan_loadN(g2h(arg1), arg2);
@@ -298,9 +323,19 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         __asan_poison_memory_region(g2h(arg1), arg2);
         break;
         
+        case QASAN_ACTION_USER_POISON:
+        __asan_poison_memory_region(g2h(arg1), arg2);
+        break;
+        
         case QASAN_ACTION_UNPOISON:
         __asan_unpoison_memory_region(g2h(arg1), arg2);
         break;
+        
+        case QASAN_ACTION_ALLOC:
+          break;
+        
+        case QASAN_ACTION_DEALLOC:
+          break;
 
 #if defined(CONFIG_USER_ONLY)        
         case QASAN_ACTION_MALLOC_USABLE_SIZE:
@@ -485,6 +520,14 @@ void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
 // #define h2g(x) (x)
 #endif
 
+#ifdef ASAN_GIOVESE
+#include "../../asan-giovese/interval-tree/rbtree.c"
+#include "../../asan-giovese/alloc.c"
+#include "../../asan-giovese/init.c"
+#include "../../asan-giovese/poison.c"
+#include "../../asan-giovese/report.c"
+#endif
+
 // TODO find what "off" really does
 
 void HELPER(qasan_load1)(CPUArchState *env, void * ptr, uint32_t off) {
@@ -614,11 +657,3 @@ void HELPER(qasan_store8)(CPUArchState *env, void * ptr, uint32_t off) {
 #endif
 
 }
-
-#ifdef ASAN_GIOVESE
-#include "../../asan-giovese/interval-tree/rbtree.c"
-#include "../../asan-giovese/alloc.c"
-#include "../../asan-giovese/init.c"
-#include "../../asan-giovese/poison.c"
-#include "../../asan-giovese/report.c"
-#endif
