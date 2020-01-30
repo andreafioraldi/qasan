@@ -175,15 +175,21 @@ void HELPER(exit_atomic)(CPUArchState *env)
 #include "qasan-qemu.h"
 
 #ifndef CONFIG_USER_ONLY
+
+__thread CPUState* qasan_cpu;
 #define g2h(x) \
   ({ \
     void *_a; \
-    if (!qasan_addr_to_host(cpu, (x), &_a)) \
-      return (target_ulong)-1; \
+    if (!qasan_addr_to_host(qasan_cpu, (x), &_a)) {\
+      /* fprintf(stderr, "QASan error: virtual address translation for %p failed!\n", (x)); */ \
+      return 0;\
+    } \
     _a; \
   })
+
 // h2g must not be defined
 // #define h2g(x) (x)
+
 #endif
 
 int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
@@ -191,6 +197,9 @@ int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
 int __qasan_debug;
 
 #ifdef ASAN_GIOVESE
+
+#include "../../asan-giovese/interval-tree/rbtree.c"
+#include "../../asan-giovese/asan-giovese-inl.h"
 
 #define MAX_ASAN_CALL_STACK 16
 
@@ -291,37 +300,35 @@ target_long qasan_actions_dispatcher(void *cpu_env,
                                      target_long arg2, target_long arg3) {
 
     CPUArchState *env = cpu_env;
-    CPUState *cpu = ENV_GET_CPU(env);
+    qasan_cpu = ENV_GET_CPU(env);
 
     switch(action) {
 #ifdef ASAN_GIOVESE
         case QASAN_ACTION_CHECK_LOAD:
-        if (asan_giovese_loadN(g2h(arg1), arg2)) {
-          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, g2h(arg1), arg2,
-                                        arg1, GET_PC(env), GET_BP(env), GET_SP(env));
+        if (asan_giovese_loadN(arg1, arg2)) {
+          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, arg1, arg2, GET_PC(env), GET_BP(env), GET_SP(env));
         }
         break;
         
         case QASAN_ACTION_CHECK_STORE:
-        if (asan_giovese_storeN(g2h(arg1), arg2)) {
-          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, g2h(arg1), arg2,
-                                        arg1, GET_PC(env), GET_BP(env), GET_SP(env));
+        if (asan_giovese_storeN(arg1, arg2)) {
+          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, arg1, arg2, GET_PC(env), GET_BP(env), GET_SP(env));
         }
         break;
         
         case QASAN_ACTION_POISON:
-        // fprintf(stderr, "POISON: %p (%p) %ld %x\n", arg1, g2h(arg1), arg2, arg3);
-        asan_giovese_poison_region(g2h(arg1), arg2, arg3);
+        // fprintf(stderr, "POISON: %p %ld %x\n", arg1, arg2, arg3);
+        asan_giovese_poison_region(arg1, arg2, arg3);
         break;
         
         case QASAN_ACTION_USER_POISON:
-        // fprintf(stderr, "USER POISON: %p (%p) %ld\n", arg1, g2h(arg1), arg2);
-        asan_giovese_user_poison_region(g2h(arg1), arg2);
+        // fprintf(stderr, "USER POISON: %p %ld\n", arg1, arg2);
+        asan_giovese_user_poison_region(arg1, arg2);
         break;
         
         case QASAN_ACTION_UNPOISON:
-        // fprintf(stderr, "UNPOISON: %p (%p) %ld\n", arg1, g2h(arg1), arg2);
-        asan_giovese_unpoison_region(g2h(arg1), arg2);
+        // fprintf(stderr, "UNPOISON: %p %ld\n", arg1, arg2);
+        asan_giovese_unpoison_region(arg1, arg2);
         break;
         
         case QASAN_ACTION_ALLOC: {
@@ -538,136 +545,148 @@ void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
 
 }
 
+#ifndef ASAN_GIOVESE
 #ifndef CONFIG_USER_ONLY
+
 #undef g2h
 #define g2h(x) \
   ({ \
     void *_a; \
-    if (!qasan_addr_to_host(ENV_GET_CPU(env), (x), &_a)) \
-      return; \
+    if (!qasan_addr_to_host(qasan_cpu, (x), &_a)) {\
+      /* fprintf(stderr, "QASan error: virtual address translation for %p failed!\n", (x)); */ \
+      return;\
+    } \
     _a; \
   })
-// h2g must not be defined
-// #define h2g(x) (x)
-#endif
 
-#ifdef ASAN_GIOVESE
-#include "../../asan-giovese/interval-tree/rbtree.c"
-#include "../../asan-giovese/alloc.c"
-#include "../../asan-giovese/init.c"
-#include "../../asan-giovese/poison.c"
-#include "../../asan-giovese/report.c"
+#endif
 #endif
 
 // TODO find what "off" really does
 
-void HELPER(qasan_load1)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load1(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 1, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load1((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 1, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_load1(addr);
 #endif
 
 }
 
-void HELPER(qasan_load2)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load2(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 2, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load2((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 2, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_load2(addr);
 #endif
 
 }
 
-void HELPER(qasan_load4)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load4(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 4, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load4((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 4, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_load4(addr);
 #endif
 
 }
 
-void HELPER(qasan_load8)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load8(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 8, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load8((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 8, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_load8(addr);
 #endif
 
 }
 
-void HELPER(qasan_store1)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store1(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 1, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store1((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 1, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store1(addr);
 #endif
 
 }
 
-void HELPER(qasan_store2)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store2(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 2, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store2((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 2, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store2(addr);
 #endif
 
 }
 
-void HELPER(qasan_store4)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store4(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 4, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store4((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 4, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store4(addr);
 #endif
 
 }
 
-void HELPER(qasan_store8)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
-  uintptr_t addr = g2h((target_long)ptr);
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store8(addr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 8, (target_long)ptr,
-                                  GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store8((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 8, GET_PC(env), GET_BP(env), GET_SP(env));
   }
 #else
+  uintptr_t addr = g2h((target_long)ptr);
   __asan_store8(addr);
 #endif
 

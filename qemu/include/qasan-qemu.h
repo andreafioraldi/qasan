@@ -88,13 +88,13 @@ target_long qasan_actions_dispatcher(void *cpu_env, target_long action,
                                      target_long arg1, target_long arg2,
                                      target_long arg3);
 
-void qasan_gen_load1(TCGv_ptr ptr, int off);
-void qasan_gen_load2(TCGv_ptr ptr, int off);
-void qasan_gen_load4(TCGv_ptr ptr, int off);
-void qasan_gen_load8(TCGv_ptr ptr, int off);
-void qasan_gen_store1(TCGv_ptr ptr, int off);
-void qasan_gen_store2(TCGv_ptr ptr, int off);
-void qasan_gen_store4(TCGv_ptr ptr, int off);
-void qasan_gen_store8(TCGv_ptr ptr, int off);
+void qasan_gen_load1(TCGv ptr, int off);
+void qasan_gen_load2(TCGv ptr, int off);
+void qasan_gen_load4(TCGv ptr, int off);
+void qasan_gen_load8(TCGv ptr, int off);
+void qasan_gen_store1(TCGv ptr, int off);
+void qasan_gen_store2(TCGv ptr, int off);
+void qasan_gen_store4(TCGv ptr, int off);
+void qasan_gen_store8(TCGv ptr, int off);
 
 #endif
