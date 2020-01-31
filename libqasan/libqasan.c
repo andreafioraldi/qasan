@@ -39,7 +39,6 @@ void __libqasan_print_maps(void) {
 
   size_t len = strlen(buf);
 
-  QASAN_LOG("\n");
   QASAN_LOG("Guest process maps:\n");
   int i;
   char * line = NULL;

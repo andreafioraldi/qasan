@@ -36,7 +36,7 @@
 #include <inttypes.h>
 #include <dlfcn.h>
 
-//#define USE_CUSTOM_MALLOC
+#define USE_CUSTOM_MALLOC
 #define DEBUG
 #include "qasan.h"
 
@@ -71,10 +71,15 @@ void* qasan_backdoor(int, void*, void*, void*);
 #define QASAN_STORE(ptr, len) \
   QASAN_CALL2(QASAN_ACTION_CHECK_STORE, ptr, len)
 
-#define QASAN_POISON(ptr, len) \
-  QASAN_CALL2(QASAN_ACTION_POISON, ptr, len)
+#define QASAN_POISON(ptr, len, poison_byte) \
+  QASAN_CALL3(QASAN_ACTION_POISON, ptr, len, poison_byte)
 #define QASAN_UNPOISON(ptr, len) \
   QASAN_CALL2(QASAN_ACTION_UNPOISON, ptr, len)
+
+#define QASAN_ALLOC(start, end) \
+  QASAN_CALL2(QASAN_ACTION_ALLOC, start, end)
+#define QASAN_DEALLOC(ptr) \
+  QASAN_CALL1(QASAN_ACTION_DEALLOC, ptr)
 
 void __libqasan_init_hooks(void);
 

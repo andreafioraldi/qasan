@@ -215,24 +215,57 @@ void asan_giovese_populate_context(struct call_context* ctx, TARGET_ULONG pc) {
   if (qasan_shadow_stack.size == 0) return;
   
   int i, j = 1;
-  for (i = 0; i < qasan_shadow_stack.first->index && j < MAX_ASAN_CALL_STACK; ++i)
+  for (i = qasan_shadow_stack.first->index -1; i >= 0 && j < MAX_ASAN_CALL_STACK; --i)
     ctx->addresses[j++] = qasan_shadow_stack.first->buf[i];
 
   struct shadow_stack_block* b = qasan_shadow_stack.first->next;
   while (b && j < MAX_ASAN_CALL_STACK) {
   
-    for (i = 0; i < SHADOW_BK_SIZE; ++i)
+    for (i = SHADOW_BK_SIZE-1; i >= 0; --i)
       ctx->addresses[j++] = b->buf[i];
   
   }
 
 }
 
+#ifdef CONFIG_USER_ONLY
+#include "../../asan-giovese/pmparser.h"
+
+char* asan_giovese_printaddr(target_ulong guest_addr) {
+
+  procmaps_iterator* maps = pmparser_parse(-1);
+  procmaps_struct*   maps_tmp = NULL;
+
+  uintptr_t a = (uintptr_t)g2h(guest_addr);
+
+  while ((maps_tmp = pmparser_next(maps)) != NULL) {
+
+    if (a >= (uintptr_t)maps_tmp->addr_start &&
+        a < (uintptr_t)maps_tmp->addr_end) {
+
+      size_t l = strlen(maps_tmp->pathname) + 32;
+      char*  s = malloc(l);
+      snprintf(s, l, " (%s+0x%lx)", maps_tmp->pathname,
+               a - (uintptr_t)maps_tmp->addr_start);
+
+      pmparser_free(maps);
+      return s;
+
+    }
+
+  }
+
+  pmparser_free(maps);
+  return NULL;
+
+}
+#else
 char* asan_giovese_printaddr(TARGET_ULONG guest_addr) {
 
   return NULL;
 
 }
+#endif
 
 #if defined(TARGET_X86_64) || defined(TARGET_I386)
 
@@ -300,7 +333,9 @@ target_long qasan_actions_dispatcher(void *cpu_env,
                                      target_long arg2, target_long arg3) {
 
     CPUArchState *env = cpu_env;
+#ifndef CONFIG_USER_ONLY
     qasan_cpu = ENV_GET_CPU(env);
+#endif
 
     switch(action) {
 #ifdef ASAN_GIOVESE

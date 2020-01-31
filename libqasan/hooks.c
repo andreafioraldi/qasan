@@ -29,6 +29,10 @@ char *(*__lq_libc_fgets)(char *, int, FILE *);
 
 void __libqasan_init_hooks(void) {
 
+#ifdef USE_CUSTOM_MALLOC
+  __libqasan_init_malloc();
+#endif
+
   __lq_libc_fgets = (void*)dlsym(RTLD_NEXT, "fgets");
 
 }
@@ -60,6 +64,8 @@ size_t malloc_usable_size (void * ptr) {
 void * malloc(size_t size) {
 
   void * rtv = __builtin_return_address(0);
+
+  
 
   QASAN_LOG("%14p: malloc(%ld)\n", rtv, size);
 #ifdef USE_CUSTOM_MALLOC
@@ -192,7 +198,18 @@ void free(void * ptr) {
 
 }
 
+char *strncpy(char *dest, const char *src, size_t n) {
+  size_t l = strnlen(src, n);
+  if (l != n)
+    __builtin_memset(dest + l, 0, n -l);
+  return __builtin_memcpy(dest, src, l);
+}
 
+char *__strncpy_sse2(char *dest, const char *src, size_t n) {
+  return strncpy(dest, src, n);
+}
+
+/*
 int memcmp(const void *s1, const void *s2, size_t n) {
 
   void * rtv = __builtin_return_address(0);
@@ -217,7 +234,7 @@ void *memcpy(void *dest, const void *src, size_t n) {
 
 }
 
-/* For a strange reason memmove is broken so we provide this homemode version */
+// For a strange reason memmove is broken so we provide this homemode version 
 void * __homemade_asan_memmove(void *dest, const void *src, size_t n) {
 
    char *csrc = (char *)src; 
@@ -287,7 +304,7 @@ int strcasecmp(const char *s1, const char *s2) {
   
   return r;
 
-}
+}*/
 /*
 char *strcat(char *dest, const char *src) {
 
@@ -301,6 +318,7 @@ char *strcat(char *dest, const char *src) {
 
 }
 */
+/*
 int strcmp(const char *s1, const char *s2) {
 
   void * rtv = __builtin_return_address(0);
@@ -455,4 +473,4 @@ long long atoll(const char *nptr) {
 
   return r;
 
-}
+}*/

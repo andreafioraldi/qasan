@@ -25,78 +25,130 @@
 
 #include "libqasan.h"
 #include <errno.h>
+#include <assert.h>
 
-#define REDZONE_SIZE 64
+#define REDZONE_SIZE 32
+
+struct chunk_begin {
+  void* fd; // do not overlap these ptmalloc ptrs
+  void* bk;
+  size_t requested_size;
+  char redzone[REDZONE_SIZE];
+};
+
+struct chunk_struct {
+
+  struct chunk_begin begin;
+  char redzone[REDZONE_SIZE];
+  size_t prev_size_padding;
+
+};
+
+size_t (*__lq_libc_malloc_usable_size)(void *);
+void * (*__lq_libc_malloc)(size_t);
+void (*__lq_libc_free)(void *);
+
+int __libqasan_malloc_initialized;
+int __tmp_alloc_zone_idx;
+unsigned char __tmp_alloc_zone[2048];
+
+
+void __libqasan_init_malloc(void) {
+
+  __lq_libc_malloc = dlsym(RTLD_NEXT, "malloc");
+  __lq_libc_malloc_usable_size = dlsym(RTLD_NEXT, "malloc_usable_size");
+  __lq_libc_free = dlsym(RTLD_NEXT, "free");
+
+  assert(__lq_libc_malloc_usable_size && __lq_libc_malloc && __lq_libc_free);
+  
+  __libqasan_malloc_initialized = 1;
+  QASAN_LOG("\n");
+  QASAN_LOG("Allocator initialization done.\n");
+  QASAN_LOG("\n");
+
+}
 
 size_t __libqasan_malloc_usable_size(void * ptr) {
 
-  if (!__lq_libc_malloc_usable_size) __libqasan_init_malloc();
+  // if (!__libqasan_malloc_initialized) __libqasan_init_malloc();
   
-  unsigned char* p = ptr;
-  p -= REDZONE_SIZE;
+  char* p = ptr;
+  p -= sizeof(struct chunk_begin);
   
-  return __lq_libc_malloc_usable_size(p);
+  // return __lq_libc_malloc_usable_size(p) - sizeof(struct chunk_struct);
+  return ((struct chunk_begin*)p)->requested_size;
 
 }
 
 void * __libqasan_malloc(size_t size) {
 
-  if (!__lq_libc_malloc) __libqasan_init_malloc();
+  if (!__libqasan_malloc_initialized) {
+  
+    void* r = &__tmp_alloc_zone[__tmp_alloc_zone_idx];
+    __tmp_alloc_zone_idx += size;
+    return r;
 
-  unsigned char* p = __lq_libc_malloc(size + REDZONE_SIZE*2);
+  }
+
+  struct chunk_begin* p = __lq_libc_malloc(sizeof(struct chunk_struct) +size);
   if (!p) return NULL;
   
-  QASAN_POISON(p, REDZONE_SIZE);
-  QASAN_UNPOISON(p + REDZONE_SIZE, size);
-  QASAN_POISON(p + REDZONE_SIZE + size, REDZONE_SIZE);
+  p->requested_size = size;
   
-  __builtin_memset(p + REDZONE_SIZE, 0xff, size);
-
-  return p + REDZONE_SIZE; 
+  QASAN_UNPOISON(&p[1], size);
+  QASAN_ALLOC(&p[1], (char*)&p[1] + size);
+  QASAN_POISON(p->redzone, REDZONE_SIZE, ASAN_HEAP_LEFT_RZ);
+  QASAN_POISON((char*)&p[1] + size, (size & ~7) +8 - size + REDZONE_SIZE, ASAN_HEAP_RIGHT_RZ);
+  
+  __builtin_memset(&p[1], 0xff, size);
+  
+  return &p[1]; 
 
 }
 
 void __libqasan_free(void * ptr) {
 
-  if (!__lq_libc_free) __libqasan_init_malloc();
-
-  unsigned char* p = ptr;
-  p -= REDZONE_SIZE;
+  if (!__libqasan_malloc_initialized) return;
   
-  size_t size = __lq_libc_malloc_usable_size(p);
+  if (!ptr) return;
 
-  QASAN_STORE(ptr, size);
-  QASAN_UNPOISON(p, size + REDZONE_SIZE*2);
+  char* p = ptr;
+  p -= sizeof(struct chunk_begin);
+  
+  size_t n = ((struct chunk_begin*)p)->requested_size;
+
+  QASAN_STORE(ptr, n);
 
   __lq_libc_free(p);
   
-  //QASAN_POISON(ptr, size); // metadata are in the redzone that is not poisoned
+  if (n & -7)
+    n = (n & -7) +8;
+  
+  QASAN_POISON(ptr, n, ASAN_HEAP_FREED);
+  QASAN_DEALLOC(ptr);
 
 }
 
 void * __libqasan_calloc(size_t nmemb, size_t size) {
 
   size *= nmemb;
-  unsigned char* p = __lq_libc_malloc(size + REDZONE_SIZE*2);
+  char* p = __libqasan_malloc(size);
   if (!p) return NULL;
   
-  QASAN_POISON(p, REDZONE_SIZE);
-  QASAN_POISON(p + REDZONE_SIZE + size, REDZONE_SIZE);
-  
-  __builtin_memset(p + REDZONE_SIZE, 0, size);
+  __builtin_memset(p, 0, size);
 
-  return p + REDZONE_SIZE; 
+  return p;
 
 }
 
 void * __libqasan_realloc(void* ptr, size_t size) {
 
-  if (!__lq_libc_malloc) __libqasan_init_malloc();
-
-  void * p = __libqasan_malloc(size);
+  char* p = __libqasan_malloc(size);
   if (!p) return NULL;
   
-  size_t n = __libqasan_malloc_usable_size(ptr);
+  if (!ptr) return p;
+  
+  size_t n = ((struct chunk_begin*)p)[-1].requested_size;
   if (size < n) n = size;
 
   __builtin_memcpy(p, ptr, n);

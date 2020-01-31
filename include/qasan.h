@@ -89,4 +89,27 @@ enum {
 
 extern int __qasan_debug;
 
+/* shadow map byte values */
+#define ASAN_VALID 0x00
+#define ASAN_PARTIAL1 0x01
+#define ASAN_PARTIAL2 0x02
+#define ASAN_PARTIAL3 0x03
+#define ASAN_PARTIAL4 0x04
+#define ASAN_PARTIAL5 0x05
+#define ASAN_PARTIAL6 0x06
+#define ASAN_PARTIAL7 0x07
+#define ASAN_ARRAY_COOKIE 0xac
+#define ASAN_STACK_RZ 0xf0
+#define ASAN_STACK_LEFT_RZ 0xf1
+#define ASAN_STACK_MID_RZ 0xf2
+#define ASAN_STACK_RIGHT_RZ 0xf3
+#define ASAN_STACK_FREED 0xf5
+#define ASAN_STACK_OOSCOPE 0xf8
+#define ASAN_GLOBAL_RZ 0xf9
+#define ASAN_HEAP_RZ 0xe9
+#define ASAN_USER 0xf7
+#define ASAN_HEAP_LEFT_RZ 0xfa
+#define ASAN_HEAP_RIGHT_RZ 0xfb
+#define ASAN_HEAP_FREED 0xfd
+
 #endif

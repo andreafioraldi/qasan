@@ -30,6 +30,7 @@ extern __thread struct shadow_stack qasan_shadow_stack;
 
 #ifdef ASAN_GIOVESE
 
+#define ASAN_NAME_STR "QEMU-AddressSanitizer"
 #include "../../asan-giovese/asan-giovese.h"
 
 #else

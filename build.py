@@ -185,14 +185,14 @@ if shutil.which(cross_cc) is None:
     exit(1)
 
 if not args.system:
-    if not args.asan_dso:
+    '''if not args.asan_dso:
         print("ERROR: usermode QASan still depends on ASan.")
         print("Please specify the ASan DSO with --asan-dso")
         print("")
-        exit(1)
+        exit(1)'''
     
     cpu_qemu_flag = ""
-    if arch in ARCHS_32:
+    if arch in ARCHS_32 and args.asan_dso:
         cpu_qemu_flag = "--cpu=i386"
         print("")
         print("WARNING: To do a 32 bit build, you have to install i386 libraries and set PKG_CONFIG_PATH")
