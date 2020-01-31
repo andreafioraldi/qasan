@@ -30,6 +30,7 @@ int (*__lq_libc_memcmp)(const void *, const void *, size_t);
 void *(*__lq_libc_memcpy)(void *, const void *, size_t);
 void *(*__lq_libc_memmove)(void *, const void *, size_t);
 void *(*__lq_libc_memset)(void *, int, size_t);
+void *(*__lq_libc_memmem)(const void *, size_t, const void *, size_t);
 size_t (*__lq_libc_strlen)(const char *);
 size_t (*__lq_libc_strnlen)(const char *, size_t);
 char *(*__lq_libc_strchr)(const char *, int);
@@ -38,6 +39,8 @@ int (*__lq_libc_strcasecmp)(const char *, const char *);
 int (*__lq_libc_strncasecmp)(const char *, const char *, size_t);
 int (*__lq_libc_strcmp)(const char *, const char *);
 int (*__lq_libc_strncmp)(const char *, const char *, size_t);
+char* (*__lq_libc_strstr)(const char*, const char*);
+char* (*__lq_libc_strcasestr)(const char*, const char*);
 int (*__lq_libc_atoi)(const char *);
 long (*__lq_libc_atol)(const char *);
 long long (*__lq_libc_atoll)(const char *);
@@ -51,6 +54,7 @@ void __libqasan_init_hooks(void) {
   __lq_libc_memcpy = (void*)dlsym(RTLD_NEXT, "memcpy");
   __lq_libc_memmove = (void*)dlsym(RTLD_NEXT, "memmove");
   __lq_libc_memset = (void*)dlsym(RTLD_NEXT, "memset");
+  __lq_libc_memmem = (void*)dlsym(RTLD_NEXT, "memmem");
   __lq_libc_strlen = (void*)dlsym(RTLD_NEXT, "strlen");
   __lq_libc_strnlen = (void*)dlsym(RTLD_NEXT, "strnlen");
   __lq_libc_strchr = (void*)dlsym(RTLD_NEXT, "strchr");
@@ -59,6 +63,8 @@ void __libqasan_init_hooks(void) {
   __lq_libc_strncasecmp = (void*)dlsym(RTLD_NEXT, "strncasecmp");
   __lq_libc_strcmp = (void*)dlsym(RTLD_NEXT, "strcmp");
   __lq_libc_strncmp = (void*)dlsym(RTLD_NEXT, "strncmp");
+  __lq_libc_strstr = (void*)dlsym(RTLD_NEXT, "strstr");
+  __lq_libc_strcasestr = (void*)dlsym(RTLD_NEXT, "strcasestr");
   __lq_libc_atoi = (void*)dlsym(RTLD_NEXT, "atoi");
   __lq_libc_atol = (void*)dlsym(RTLD_NEXT, "atol");
   __lq_libc_atoll = (void*)dlsym(RTLD_NEXT, "atoll");
@@ -241,6 +247,20 @@ void *memset(void *s, int c, size_t n) {
   QASAN_LOG("%14p: memcpy(%p, %d, %ld)\n", rtv, s, c, n);
   QASAN_STORE(s, n);
   void * r = __lq_libc_memset(s, c, n);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: memmem(%p, %ld, %p, %ld)\n", rtv, haystack, haystacklen, needle, needlelen);
+  QASAN_LOAD(haystack, haystacklen);
+  QASAN_LOAD(needle, needlelen);
+  void * r = __lq_libc_memmem(haystack, haystacklen, needle, needlelen);
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -462,6 +482,38 @@ size_t strnlen(const char *s, size_t n) {
   size_t r = __lq_libc_strnlen(s, n);
   QASAN_LOAD(s, r);
   QASAN_LOG("\t\t = %ld\n", r);
+  
+  return r;
+
+}
+
+char* strstr(const char* haystack, const char* needle) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strstr(%p, %p)\n", rtv, haystack, needle);
+  size_t l = __lq_libc_strlen(haystack) +1;
+  QASAN_LOAD(haystack, l);
+  l = __lq_libc_strlen(needle) +1;
+  QASAN_LOAD(needle, l);
+  void * r = __lq_libc_strstr(haystack, needle);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+char* strcasestr(const char* haystack, const char* needle) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: strcasestr(%p, %p)\n", rtv, haystack, needle);
+  size_t l = __lq_libc_strlen(haystack) +1;
+  QASAN_LOAD(haystack, l);
+  l = __lq_libc_strlen(needle) +1;
+  QASAN_LOAD(needle, l);
+  void * r = __lq_libc_strcasestr(haystack, needle);
+  QASAN_LOG("\t\t = %p\n", r);
   
   return r;
 
