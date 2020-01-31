@@ -231,6 +231,61 @@ void asan_giovese_populate_context(struct call_context* ctx, TARGET_ULONG pc) {
 #ifdef CONFIG_USER_ONLY
 #include "../../asan-giovese/pmparser.h"
 
+static void addr2line_cmd(char* lib, uintptr_t off, char** function, char** line) {
+  
+  if (getenv("QASAN_DONT_SYMBOLIZE")) goto addr2line_cmd_skip;
+  
+  FILE *fp;
+
+  size_t cmd_siz = 128 + strlen(lib);
+  char* cmd = malloc(cmd_siz);
+  snprintf(cmd, cmd_siz, "addr2line -f -e '%s' 0x%lx", lib, off);
+
+  fp = popen(cmd, "r");
+  free(cmd);
+  
+  if (fp == NULL) goto addr2line_cmd_skip;
+
+  *function = malloc(PATH_MAX + 32);
+  
+  if (!fgets(*function, PATH_MAX + 32, fp) || !strncmp(*function, "??", 2)) {
+
+    free(*function);
+    *function = NULL;
+
+  } else {
+
+    size_t l = strlen(*function);
+    if (l && (*function)[l-1] == '\n')
+      (*function)[l-1] = 0;
+      
+  }
+  
+  *line = malloc(PATH_MAX + 32);
+  
+  if (!fgets(*line, PATH_MAX + 32, fp) || !strncmp(*line, "??:", 3)) {
+
+    free(*line);
+    *line = NULL;
+
+  } else {
+
+    size_t l = strlen(*line);
+    if (l && (*line)[l-1] == '\n')
+      (*line)[l-1] = 0;
+      
+  }
+
+  pclose(fp);
+  
+  return;
+
+addr2line_cmd_skip:
+  *line = NULL;
+  *function = NULL;
+  
+}
+
 char* asan_giovese_printaddr(target_ulong guest_addr) {
 
   procmaps_iterator* maps = pmparser_parse(-1);
@@ -243,10 +298,40 @@ char* asan_giovese_printaddr(target_ulong guest_addr) {
     if (a >= (uintptr_t)maps_tmp->addr_start &&
         a < (uintptr_t)maps_tmp->addr_end) {
 
-      size_t l = strlen(maps_tmp->pathname) + 32;
-      char*  s = malloc(l);
-      snprintf(s, l, " (%s+0x%lx)", maps_tmp->pathname,
-               a - (uintptr_t)maps_tmp->addr_start);
+      char* s;
+      char * function;
+      char * line;
+      addr2line_cmd(maps_tmp->pathname, a - (uintptr_t)maps_tmp->addr_start,
+                    &function, &line);
+
+      if (function) {
+      
+        if (line) {
+        
+          size_t l = strlen(function) + strlen(line) + 32;
+          s = malloc(l);
+          snprintf(s, l, " in %s %s", function, line);
+          free(line);
+          
+        } else {
+
+          size_t l = strlen(function) + strlen(maps_tmp->pathname) + 32;
+          s = malloc(l);
+          snprintf(s, l, " in %s (%s+0x%lx)", function, maps_tmp->pathname,
+                   a - (uintptr_t)maps_tmp->addr_start);
+          
+        }
+        
+        free(function);
+      
+      } else {
+
+        size_t l = strlen(maps_tmp->pathname) + 32;
+        s = malloc(l);
+        snprintf(s, l, " (%s+0x%lx)", maps_tmp->pathname,
+                 a - (uintptr_t)maps_tmp->addr_start);
+
+      }
 
       pmparser_free(maps);
       return s;

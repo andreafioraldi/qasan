@@ -27,7 +27,7 @@
 
 int __qasan_debug;
 
-// void* qasan_backdoor(int a, void* b, void* c, void* d) { return NULL; }
+// void* __qasan_backdoor(int a, void* b, void* c, void* d) { return NULL; }
 
 void __libqasan_print_maps(void) {
 

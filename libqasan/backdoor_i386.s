@@ -24,12 +24,12 @@
 #
 
   .intel_syntax noprefix
-  .global qasan_backdoor
+  .global __qasan_backdoor
 
   .text
 
-# void* qasan_backdoor(int, void*, void*, void*)
-qasan_backdoor:
+# void* __qasan_backdoor(int, void*, void*, void*)
+__qasan_backdoor:
   push edi
   push esi
   mov eax, [esp+12] # action
@@ -39,6 +39,7 @@ qasan_backdoor:
   .byte 0x0f
   .byte 0x3a
   .byte 0xf2
+  pop esi # wtf
   pop esi
   pop edi
   ret

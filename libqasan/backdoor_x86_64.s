@@ -24,12 +24,12 @@
 #
 
   .intel_syntax noprefix
-  .global qasan_backdoor
+  .global __qasan_backdoor
 
   .text
 
-# void* qasan_backdoor(int, void*, void*, void*)
-qasan_backdoor:
+# void* __qasan_backdoor(int, void*, void*, void*)
+__qasan_backdoor:
   mov rax, rdi # action
   mov rdi, rsi # arg1
   mov rsi, rdx # arg2

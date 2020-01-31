@@ -40,18 +40,18 @@
 #define DEBUG
 #include "qasan.h"
 
-#if __x86_64__ // || __i386__ // TODO adjust x86 backdoor
+#if __x86_64__ || __i386__
 
 // The backdoor is more performant than the fake syscall
-void* qasan_backdoor(int, void*, void*, void*);
+void* __qasan_backdoor(int, void*, void*, void*);
 #define QASAN_CALL0(action) \
-  ((size_t)qasan_backdoor(action, NULL, NULL, NULL))
+  ((size_t)__qasan_backdoor(action, NULL, NULL, NULL))
 #define QASAN_CALL1(action, arg1) \
-  ((size_t)qasan_backdoor(action, (void*)(arg1), NULL, NULL))
+  ((size_t)__qasan_backdoor(action, (void*)(arg1), NULL, NULL))
 #define QASAN_CALL2(action, arg1, arg2) \
-  ((size_t)qasan_backdoor(action, (void*)(arg1), (void*)(arg2), NULL))
+  ((size_t)__qasan_backdoor(action, (void*)(arg1), (void*)(arg2), NULL))
 #define QASAN_CALL3(action, arg1, arg2, arg3) \
-  ((size_t)qasan_backdoor(action, (void*)(arg1), (void*)(arg2), (void*)(arg3)))
+  ((size_t)__qasan_backdoor(action, (void*)(arg1), (void*)(arg2), (void*)(arg3)))
 
 #else
 

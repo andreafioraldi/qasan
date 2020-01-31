@@ -26,6 +26,8 @@
 #include "libqasan.h"
 
 char *(*__lq_libc_fgets)(char *, int, FILE *);
+int (*__lq_libc_memcmp)(const void *, const void *, size_t);
+char *(*__lq_libc_memcpy)(void *, const void *, size_t);
 
 void __libqasan_init_hooks(void) {
 
@@ -34,14 +36,8 @@ void __libqasan_init_hooks(void) {
 #endif
 
   __lq_libc_fgets = (void*)dlsym(RTLD_NEXT, "fgets");
-
-}
-
-char *fgets(char *s, int size, FILE *stream) {
-
- QASAN_STORE(s, size);
- QASAN_LOAD(stream, sizeof(FILE));
- return __lq_libc_fgets(s, size, stream);
+  __lq_libc_memcmp = (void*)dlsym(RTLD_NEXT, "memcmp");
+  __lq_libc_memcpy = (void*)dlsym(RTLD_NEXT, "memcpy");
 
 }
 
@@ -64,8 +60,6 @@ size_t malloc_usable_size (void * ptr) {
 void * malloc(size_t size) {
 
   void * rtv = __builtin_return_address(0);
-
-  
 
   QASAN_LOG("%14p: malloc(%ld)\n", rtv, size);
 #ifdef USE_CUSTOM_MALLOC
@@ -198,15 +192,40 @@ void free(void * ptr) {
 
 }
 
-char *strncpy(char *dest, const char *src, size_t n) {
-  size_t l = strnlen(src, n);
-  if (l != n)
-    __builtin_memset(dest + l, 0, n -l);
-  return __builtin_memcpy(dest, src, l);
+char *fgets(char *s, int size, FILE *stream) {
+
+ QASAN_STORE(s, size);
+ QASAN_LOAD(stream, sizeof(FILE));
+ return __lq_libc_fgets(s, size, stream);
+
 }
 
-char *__strncpy_sse2(char *dest, const char *src, size_t n) {
-  return strncpy(dest, src, n);
+int memcmp(const void *s1, const void *s2, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: memcmp(%p, %p, %ld)\n", rtv, s1, s2, n);
+  QASAN_LOAD(s1, n);
+  QASAN_LOAD(s2, n);
+  int r = __lq_libc_memcmp(s1, s2, n);
+  QASAN_LOG("\t\t = %d\n", r);
+  
+  return r;
+
+}
+
+void *memcpy(void *dest, const void *src, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: memcpy(%p, %p, %ld)\n", rtv, dest, src, n);
+  QASAN_LOAD(src, n);
+  QASAN_STORE(dest, n);
+  void * r = __lq_libc_memcpy(dest, src, n);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
 }
 
 /*

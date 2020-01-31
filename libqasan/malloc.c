@@ -29,6 +29,8 @@
 
 #define REDZONE_SIZE 32
 
+// TODO quarantine
+
 struct chunk_begin {
   void* fd; // do not overlap these ptmalloc ptrs
   void* bk;
