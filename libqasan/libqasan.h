@@ -36,7 +36,6 @@
 #include <inttypes.h>
 #include <dlfcn.h>
 
-#define USE_CUSTOM_MALLOC
 #define DEBUG
 #include "qasan.h"
 
@@ -82,8 +81,6 @@ void* __qasan_backdoor(int, void*, void*, void*);
   QASAN_CALL1(QASAN_ACTION_DEALLOC, ptr)
 
 void __libqasan_init_hooks(void);
-
-#ifdef USE_CUSTOM_MALLOC
 void __libqasan_init_malloc(void);
 
 size_t __libqasan_malloc_usable_size(void * ptr);
@@ -94,6 +91,5 @@ void*  __libqasan_realloc(void* ptr, size_t size);
 int    __libqasan_posix_memalign(void** ptr, size_t align, size_t len);
 void*  __libqasan_memalign(size_t align, size_t len);
 void*  __libqasan_aligned_alloc(size_t align, size_t len);
-#endif
 
 #endif

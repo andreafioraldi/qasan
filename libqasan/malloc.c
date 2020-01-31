@@ -52,7 +52,7 @@ void (*__lq_libc_free)(void *);
 
 int __libqasan_malloc_initialized;
 int __tmp_alloc_zone_idx;
-unsigned char __tmp_alloc_zone[2048];
+unsigned char __tmp_alloc_zone[4096];
 
 
 void __libqasan_init_malloc(void) {
@@ -134,6 +134,15 @@ void __libqasan_free(void * ptr) {
 void * __libqasan_calloc(size_t nmemb, size_t size) {
 
   size *= nmemb;
+  
+  if (!__libqasan_malloc_initialized) {
+  
+    void* r = &__tmp_alloc_zone[__tmp_alloc_zone_idx];
+    __tmp_alloc_zone_idx += size;
+    return r;
+
+  }
+  
   char* p = __libqasan_malloc(size);
   if (!p) return NULL;
   

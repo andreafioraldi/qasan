@@ -27,17 +27,19 @@
 
 char *(*__lq_libc_fgets)(char *, int, FILE *);
 int (*__lq_libc_memcmp)(const void *, const void *, size_t);
-char *(*__lq_libc_memcpy)(void *, const void *, size_t);
+void *(*__lq_libc_memcpy)(void *, const void *, size_t);
+void *(*__lq_libc_memmove)(void *, const void *, size_t);
+void *(*__lq_libc_memset)(void *, int, size_t);
 
 void __libqasan_init_hooks(void) {
 
-#ifdef USE_CUSTOM_MALLOC
   __libqasan_init_malloc();
-#endif
 
   __lq_libc_fgets = (void*)dlsym(RTLD_NEXT, "fgets");
   __lq_libc_memcmp = (void*)dlsym(RTLD_NEXT, "memcmp");
   __lq_libc_memcpy = (void*)dlsym(RTLD_NEXT, "memcpy");
+  __lq_libc_memmove = (void*)dlsym(RTLD_NEXT, "memmove");
+  __lq_libc_memset = (void*)dlsym(RTLD_NEXT, "memset");
 
 }
 
@@ -46,11 +48,7 @@ size_t malloc_usable_size (void * ptr) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: malloc_usable_size(%p)\n", rtv, ptr);
-#ifdef USE_CUSTOM_MALLOC
   size_t r = __libqasan_malloc_usable_size(ptr);
-#else
-  size_t r = QASAN_CALL1(QASAN_ACTION_MALLOC_USABLE_SIZE, ptr);
-#endif
   QASAN_LOG("\t\t = %ld\n", r);
 
   return r;
@@ -62,11 +60,7 @@ void * malloc(size_t size) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: malloc(%ld)\n", rtv, size);
-#ifdef USE_CUSTOM_MALLOC
   void * r = __libqasan_malloc(size);
-#else
-  void * r = (void*)QASAN_CALL1(QASAN_ACTION_MALLOC, size);
-#endif
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -78,11 +72,7 @@ void * calloc(size_t nmemb, size_t size) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: calloc(%ld, %ld)\n", rtv, nmemb, size);
-#ifdef USE_CUSTOM_MALLOC
   void * r = __libqasan_calloc(nmemb, size);
-#else
-  void * r = (void*)QASAN_CALL2(QASAN_ACTION_CALLOC, nmemb, size);
-#endif
   QASAN_LOG("\t\t = %p\n", r);
 
   return r;
@@ -94,11 +84,7 @@ void *realloc(void *ptr, size_t size) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: realloc(%p, %ld)\n", rtv, ptr, size);
-#ifdef USE_CUSTOM_MALLOC
   void * r = __libqasan_realloc(ptr, size);
-#else
-  void * r = (void*)QASAN_CALL2(QASAN_ACTION_REALLOC, ptr, size);
-#endif
   QASAN_LOG("\t\t = %p\n", r);
 
   return r;
@@ -110,11 +96,7 @@ int posix_memalign(void **memptr, size_t alignment, size_t size) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: posix_memalign(%p, %ld, %ld)\n", rtv, memptr, alignment, size);
-#ifdef USE_CUSTOM_MALLOC
   int r = __libqasan_posix_memalign(memptr, alignment, size);
-#else
-  int r = QASAN_CALL3(QASAN_ACTION_POSIX_MEMALIGN, memptr, alignment, size);
-#endif
   QASAN_LOG("\t\t = %d [*memptr = %p]\n", r, *memptr);
 
   return r;
@@ -126,11 +108,7 @@ void *memalign(size_t alignment, size_t size) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: memalign(%ld, %ld)\n", rtv, alignment, size);
-#ifdef USE_CUSTOM_MALLOC
   void * r = __libqasan_memalign(alignment, size);
-#else
-  void * r = (void*)QASAN_CALL2(QASAN_ACTION_MEMALIGN, alignment, size);
-#endif
   QASAN_LOG("\t\t = %p\n", r);
 
   return r;
@@ -142,24 +120,19 @@ void *aligned_alloc(size_t alignment, size_t size) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: aligned_alloc(%ld, %ld)\n", rtv, alignment, size);
-#ifdef USE_CUSTOM_MALLOC
   void * r = __libqasan_aligned_alloc(alignment, size);
-#else
-  void * r = (void*)QASAN_CALL2(QASAN_ACTION_ALIGNED_ALLOC, alignment, size);
-#endif
   QASAN_LOG("\t\t = %p\n", r);
 
   return r;
 
 }
 
-#ifndef USE_CUSTOM_MALLOC
 void * valloc(size_t size) {
 
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: valloc(%ld)\n", rtv, size);
-  void * r = (void*)QASAN_CALL1(QASAN_ACTION_VALLOC, size);
+  void * r = __libqasan_memalign(sysconf(_SC_PAGESIZE), size);
   QASAN_LOG("\t\t = %p\n", r);
 
   return r;
@@ -171,24 +144,21 @@ void * pvalloc(size_t size) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: pvalloc(%ld)\n", rtv, size);
-  void * r = (void*)QASAN_CALL1(QASAN_ACTION_PVALLOC, size);
+  size_t page_size = sysconf(_SC_PAGESIZE);
+  size = (size & (page_size -1)) + page_size;
+  void * r = __libqasan_memalign(page_size, size);
   QASAN_LOG("\t\t = %p\n", r);
 
   return r;
 
 }
-#endif
 
 void free(void * ptr) {
 
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: free(%p)\n", rtv, ptr);
-#ifdef USE_CUSTOM_MALLOC
   __libqasan_free(ptr);
-#else
-  QASAN_CALL1(QASAN_ACTION_FREE, ptr);
-#endif
 
 }
 
@@ -228,61 +198,14 @@ void *memcpy(void *dest, const void *src, size_t n) {
 
 }
 
-/*
-int memcmp(const void *s1, const void *s2, size_t n) {
-
-  void * rtv = __builtin_return_address(0);
-
-  QASAN_LOG("%14p: memcmp(%p, %p, %ld)\n", rtv, s1, s2, n);
-  int r = QASAN_CALL3(QASAN_ACTION_MEMCMP, s1, s2, n);
-  QASAN_LOG("\t\t = %d\n", r);
-  
-  return r;
-
-}
-
-void *memcpy(void *dest, const void *src, size_t n) {
-
-  void * rtv = __builtin_return_address(0);
-
-  QASAN_LOG("%14p: memcpy(%p, %p, %ld)\n", rtv, dest, src, n);
-  void * r = (void*)QASAN_CALL3(QASAN_ACTION_MEMCPY, dest, src, n);
-  QASAN_LOG("\t\t = %p\n", r);
-  
-  return r;
-
-}
-
-// For a strange reason memmove is broken so we provide this homemode version 
-void * __homemade_asan_memmove(void *dest, const void *src, size_t n) {
-
-   char *csrc = (char *)src; 
-   char *cdest = (char *)dest;
-   
-   QASAN_LOAD(src, n);
-   QASAN_STORE(dest, n);
-  
-   char *temp = (void*)QASAN_CALL1(QASAN_ACTION_MALLOC, n); 
-  
-   for (int i=0; i<n; i++) 
-       temp[i] = csrc[i];
-  
-   for (int i=0; i<n; i++) 
-       cdest[i] = temp[i];
-  
-   QASAN_CALL1(QASAN_ACTION_FREE, temp);
-   
-   return dest;
-
-}
-
 void *memmove(void *dest, const void *src, size_t n) {
 
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: memmove(%p, %p, %ld)\n", rtv, dest, src, n);
-  void * r = __homemade_asan_memmove(dest, src, n);
-  //void * r = (void*)QASAN_CALL3(QASAN_ACTION_MEMMOVE, dest, src, n);
+  QASAN_LOAD(src, n);
+  QASAN_STORE(dest, n);
+  void * r = __lq_libc_memmove(dest, src, n);
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -294,12 +217,15 @@ void *memset(void *s, int c, size_t n) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_LOG("%14p: memcpy(%p, %d, %ld)\n", rtv, s, c, n);
-  void * r = (void*)QASAN_CALL3(QASAN_ACTION_MEMSET, s, c, n);
+  QASAN_STORE(s, n);
+  void * r = __lq_libc_memset(s, c, n);
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
 
 }
+
+/*
 
 char *strchr(const char *s, int c) {
 

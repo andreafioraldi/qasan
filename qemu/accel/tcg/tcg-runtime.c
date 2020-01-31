@@ -196,14 +196,14 @@ int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
 
 int __qasan_debug;
 
+#define MAX_ASAN_CALL_STACK 16
+
+__thread struct shadow_stack qasan_shadow_stack;
+
 #ifdef ASAN_GIOVESE
 
 #include "../../asan-giovese/interval-tree/rbtree.c"
 #include "../../asan-giovese/asan-giovese-inl.h"
-
-#define MAX_ASAN_CALL_STACK 16
-
-__thread struct shadow_stack qasan_shadow_stack;
 
 void asan_giovese_populate_context(struct call_context* ctx, TARGET_ULONG pc) {
 
@@ -352,16 +352,6 @@ char* asan_giovese_printaddr(TARGET_ULONG guest_addr) {
 }
 #endif
 
-#if defined(TARGET_X86_64) || defined(TARGET_I386)
-
-#define GET_PC(env) ((env)->eip)
-#define GET_BP(env) ((env)->regs[R_EBP])
-#define GET_SP(env) ((env)->regs[R_ESP])
-
-#else
-#error "Target not supported by asan-giovese"
-#endif
-
 #endif
 
 void HELPER(qasan_shadow_stack_push)(target_ulong ptr) {
@@ -494,159 +484,6 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         
         case QASAN_ACTION_DEALLOC:
           break;
-
-#if defined(CONFIG_USER_ONLY)        
-        case QASAN_ACTION_MALLOC_USABLE_SIZE:
-        return __interceptor_malloc_usable_size(g2h(arg1));
-        
-        case QASAN_ACTION_MALLOC: {
-            target_long r = h2g(__interceptor_malloc(arg1));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_CALLOC: {
-            target_long r = h2g(__interceptor_calloc(arg1, arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + (arg1 * arg2) + HEAP_PAD,
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_REALLOC: {
-            target_long r = h2g(__interceptor_malloc(arg2));
-            if (r) {
-              page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
-                             PROT_READ | PROT_WRITE | PAGE_VALID);
-              size_t l = __interceptor_malloc_usable_size(g2h(arg1));
-              if (arg2 < l) l = arg2;
-              __asan_memcpy(g2h(r), g2h(arg1), l);
-            }
-            __interceptor_free(g2h(arg1));
-            /*target_long r = h2g(__interceptor_realloc(g2h(arg1), arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);*/
-            return r;
-        }
-        
-        case QASAN_ACTION_POSIX_MEMALIGN: {
-            void ** memptr = (void **)g2h(arg1);
-            target_long r = __interceptor_posix_memalign(memptr, arg2, arg3);
-            if (*memptr) {
-              *memptr = h2g(*memptr);
-              page_set_flags(*memptr - HEAP_PAD, *memptr + arg2 + HEAP_PAD,
-                             PROT_READ | PROT_WRITE | PAGE_VALID);
-            }
-            return r;
-        }
-        
-        case QASAN_ACTION_MEMALIGN: {
-            target_long r = h2g(__interceptor_memalign(arg1, arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_ALIGNED_ALLOC: {
-            target_long r = h2g(__interceptor_aligned_alloc(arg1, arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_VALLOC: {
-            target_long r = h2g(__interceptor_valloc(arg1));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_PVALLOC: {
-            target_long r = h2g(__interceptor_pvalloc(arg1));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_FREE:
-        __interceptor_free(g2h(arg1));
-        break;
-        
-        case QASAN_ACTION_MEMCMP:
-        return __interceptor_memcmp(g2h(arg1), g2h(arg2), arg3);
-        
-        case QASAN_ACTION_MEMCPY:
-        return h2g(__asan_memcpy(g2h(arg1), g2h(arg2), arg3));
-        
-        case QASAN_ACTION_MEMMOVE:
-        return h2g(__interceptor_memmove(g2h(arg1), g2h(arg2), arg3));
-        
-        case QASAN_ACTION_MEMSET:
-        return h2g(__asan_memset(g2h(arg1), arg2, arg3));
-        
-        case QASAN_ACTION_STRCHR:
-        return h2g(__interceptor_strchr(g2h(arg1), arg2));
-        
-        case QASAN_ACTION_STRCASECMP:
-        return __interceptor_strcasecmp(g2h(arg1), g2h(arg2));
-        
-        case QASAN_ACTION_STRCAT: {
-          // TODO fixme: strange stuffs happens when using ASan strcat...
-          // return h2g(__interceptor_strcat(g2h(arg1), g2h(arg2)));
-          size_t l1 = strlen(g2h(arg1));
-          size_t l2 = strlen(g2h(arg2));
-          __asan_loadN(g2h(arg2), l2);
-          if (l2) {
-            __asan_loadN(g2h(arg1), l1);
-            __asan_storeN(g2h(arg1) +l1, l2 +1);
-          }
-          return h2g(strcat(g2h(arg1), g2h(arg2)));
-        }
-        
-        case QASAN_ACTION_STRCMP:
-        return __interceptor_strcmp(g2h(arg1), g2h(arg2));
-        
-        case QASAN_ACTION_STRCPY:
-        return h2g(__interceptor_strcpy(g2h(arg1), g2h(arg2)));
-        
-        case QASAN_ACTION_STRDUP: {
-            size_t l = __interceptor_strlen(g2h(arg1));
-            target_long r = h2g(__interceptor_strdup(g2h(arg1)));
-            if (r) page_set_flags(r - HEAP_PAD, r + l + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_STRLEN:
-        return __interceptor_strlen(g2h(arg1));
-        
-        case QASAN_ACTION_STRNCASECMP:
-        return __interceptor_strncasecmp(g2h(arg1), g2h(arg2), arg3);
-        
-        case QASAN_ACTION_STRNCMP:
-        return __interceptor_strncmp(g2h(arg1), g2h(arg2), arg3);
-       
-        case QASAN_ACTION_STRNCAT:
-        return __interceptor_strncat(g2h(arg1), g2h(arg2), arg3);
-
-        case QASAN_ACTION_STRNCPY:
-        return h2g(__interceptor_strncpy(g2h(arg1), g2h(arg2), arg3));
-        
-        case QASAN_ACTION_STRNLEN:
-        return __interceptor_strnlen(g2h(arg1), arg2);
-        
-        case QASAN_ACTION_STRRCHR:
-        return h2g(__interceptor_strrchr(g2h(arg1), arg2));
-        
-        case QASAN_ACTION_ATOI:
-        return __interceptor_atoi(g2h(arg1));
-        
-        case QASAN_ACTION_ATOL:
-        return __interceptor_atol(g2h(arg1));
-        
-        case QASAN_ACTION_ATOLL:
-        return __interceptor_atoll(g2h(arg1));
-#endif
 #endif
         default:
         QASAN_LOG("Invalid QASAN action %d\n", action);

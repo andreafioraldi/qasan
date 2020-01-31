@@ -29,13 +29,6 @@ import sys
 import shutil
 import platform
 import argparse
-try:
-    import lief
-except ImportError:
-    print("ERROR: lief not installed.")
-    print("   $ pip3 install lief --user")
-    print("")
-    exit(1)
 
 DESCR = """QEMU-AddressSanitizer Builder
 Copyright (C) 2019 Andrea Fioraldi <andreafioraldi@gmail.com>
@@ -119,6 +112,15 @@ if shutil.which(args.cxx) is None and not os.path.isfile(args.cxx):
 def deintercept(asan_dso, output_dso):
     global arch
     print("Patching", asan_dso)
+    
+    try:
+        import lief
+    except ImportError:
+        print("ERROR: lief not installed.")
+        print("   $ pip3 install lief --user")
+        print("")
+        exit(1)
+    
     lib = lief.parse(asan_dso)
 
     names = []
