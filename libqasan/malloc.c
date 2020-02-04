@@ -35,6 +35,7 @@ struct chunk_begin {
   void* fd; // do not overlap these ptmalloc ptrs
   void* bk;
   size_t requested_size;
+  size_t pad; // for alignment
   char redzone[REDZONE_SIZE];
 };
 

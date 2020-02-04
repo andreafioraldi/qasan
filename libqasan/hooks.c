@@ -45,29 +45,40 @@ int (*__lq_libc_atoi)(const char *);
 long (*__lq_libc_atol)(const char *);
 long long (*__lq_libc_atoll)(const char *);
 
+static void* __assert_dlsym(const char* name) {
+  
+  void* a = (void*)dlsym(RTLD_NEXT, name);
+  if (!a) {
+    fprintf(stderr, "FATAL ERROR: failed dlsym of %s in libqasan!\n", name);
+    abort();
+  }
+  return a;
+
+}
+
 void __libqasan_init_hooks(void) {
 
   __libqasan_init_malloc();
 
-  __lq_libc_fgets = (void*)dlsym(RTLD_NEXT, "fgets");
-  __lq_libc_memcmp = (void*)dlsym(RTLD_NEXT, "memcmp");
-  __lq_libc_memcpy = (void*)dlsym(RTLD_NEXT, "memcpy");
-  __lq_libc_memmove = (void*)dlsym(RTLD_NEXT, "memmove");
-  __lq_libc_memset = (void*)dlsym(RTLD_NEXT, "memset");
-  __lq_libc_memmem = (void*)dlsym(RTLD_NEXT, "memmem");
-  __lq_libc_strlen = (void*)dlsym(RTLD_NEXT, "strlen");
-  __lq_libc_strnlen = (void*)dlsym(RTLD_NEXT, "strnlen");
-  __lq_libc_strchr = (void*)dlsym(RTLD_NEXT, "strchr");
-  __lq_libc_strrchr = (void*)dlsym(RTLD_NEXT, "strrchr");
-  __lq_libc_strcasecmp = (void*)dlsym(RTLD_NEXT, "strcasecmp");
-  __lq_libc_strncasecmp = (void*)dlsym(RTLD_NEXT, "strncasecmp");
-  __lq_libc_strcmp = (void*)dlsym(RTLD_NEXT, "strcmp");
-  __lq_libc_strncmp = (void*)dlsym(RTLD_NEXT, "strncmp");
-  __lq_libc_strstr = (void*)dlsym(RTLD_NEXT, "strstr");
-  __lq_libc_strcasestr = (void*)dlsym(RTLD_NEXT, "strcasestr");
-  __lq_libc_atoi = (void*)dlsym(RTLD_NEXT, "atoi");
-  __lq_libc_atol = (void*)dlsym(RTLD_NEXT, "atol");
-  __lq_libc_atoll = (void*)dlsym(RTLD_NEXT, "atoll");
+  __lq_libc_fgets = __assert_dlsym("fgets");
+  __lq_libc_memcmp = __assert_dlsym("memcmp");
+  __lq_libc_memcpy = __assert_dlsym("memcpy");
+  __lq_libc_memmove = __assert_dlsym("memmove");
+  __lq_libc_memset = __assert_dlsym("memset");
+  __lq_libc_memmem = __assert_dlsym("memmem");
+  __lq_libc_strlen = __assert_dlsym("strlen");
+  __lq_libc_strnlen = __assert_dlsym("strnlen");
+  __lq_libc_strchr = __assert_dlsym("strchr");
+  __lq_libc_strrchr = __assert_dlsym("strrchr");
+  __lq_libc_strcasecmp = __assert_dlsym("strcasecmp");
+  __lq_libc_strncasecmp = __assert_dlsym("strncasecmp");
+  __lq_libc_strcmp = __assert_dlsym("strcmp");
+  __lq_libc_strncmp = __assert_dlsym("strncmp");
+  __lq_libc_strstr = __assert_dlsym("strstr");
+  __lq_libc_strcasestr = __assert_dlsym("strcasestr");
+  __lq_libc_atoi = __assert_dlsym("atoi");
+  __lq_libc_atol = __assert_dlsym("atol");
+  __lq_libc_atoll = __assert_dlsym("atoll");
 
 }
 
@@ -219,7 +230,17 @@ void *memcpy(void *dest, const void *src, size_t n) {
   QASAN_LOG("%14p: memcpy(%p, %p, %ld)\n", rtv, dest, src, n);
   QASAN_LOAD(src, n);
   QASAN_STORE(dest, n);
-  void * r = __lq_libc_memcpy(dest, src, n);
+  void * r;
+  if (__lq_libc_memcpy != NULL)
+    r = __lq_libc_memcpy(dest, src, n);
+  else {
+
+    size_t i;
+    for (i = 0; i < n; ++i)
+      ((unsigned char*)dest)[i] = ((const unsigned char*)src)[i];
+    r = dest;
+
+  }
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -244,9 +265,19 @@ void *memset(void *s, int c, size_t n) {
 
   void * rtv = __builtin_return_address(0);
 
-  QASAN_LOG("%14p: memcpy(%p, %d, %ld)\n", rtv, s, c, n);
+  QASAN_LOG("%14p: memset(%p, %d, %ld)\n", rtv, s, c, n);
   QASAN_STORE(s, n);
-  void * r = __lq_libc_memset(s, c, n);
+  void * r;
+  if (__lq_libc_memset != NULL)
+    r = __lq_libc_memset(s, c, n);
+  else {
+
+    size_t i;
+    for (i = 0; i < n; ++i)
+      ((char*)s)[i] = c;
+    r = s;
+
+  }
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -287,6 +318,19 @@ void explicit_bzero(void *s, size_t n) {
   
 }
 
+int bcmp(const void *s1, const void *s2, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: bcmp(%p, %p, %ld)\n", rtv, s1, s2, n);
+  QASAN_LOAD(s1, n);
+  QASAN_LOAD(s2, n);
+  int r = !!__lq_libc_memcmp(s1, s2, n);
+  QASAN_LOG("\t\t = %d\n", r);
+  
+  return r;
+  
+}
 
 char *strchr(const char *s, int c) {
 
@@ -487,6 +531,7 @@ size_t strnlen(const char *s, size_t n) {
 
 }
 
+/*
 char* strstr(const char* haystack, const char* needle) {
 
   void * rtv = __builtin_return_address(0);
@@ -502,6 +547,7 @@ char* strstr(const char* haystack, const char* needle) {
   return r;
 
 }
+*/
 
 char* strcasestr(const char* haystack, const char* needle) {
 
