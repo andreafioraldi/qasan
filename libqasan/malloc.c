@@ -101,7 +101,10 @@ void * __libqasan_malloc(size_t size) {
   QASAN_UNPOISON(&p[1], size);
   QASAN_ALLOC(&p[1], (char*)&p[1] + size);
   QASAN_POISON(p->redzone, REDZONE_SIZE, ASAN_HEAP_LEFT_RZ);
-  QASAN_POISON((char*)&p[1] + size, (size & ~7) +8 - size + REDZONE_SIZE, ASAN_HEAP_RIGHT_RZ);
+  if (size & 7)
+    QASAN_POISON((char*)&p[1] + size, (size & ~7) +8 - size + REDZONE_SIZE, ASAN_HEAP_RIGHT_RZ);
+  else
+    QASAN_POISON((char*)&p[1] + size, REDZONE_SIZE, ASAN_HEAP_RIGHT_RZ);
   
   __builtin_memset(&p[1], 0xff, size);
   
@@ -160,7 +163,7 @@ void * __libqasan_realloc(void* ptr, size_t size) {
   
   if (!ptr) return p;
   
-  size_t n = ((struct chunk_begin*)p)[-1].requested_size;
+  size_t n = ((struct chunk_begin*)ptr)[-1].requested_size;
   if (size < n) n = size;
 
   __builtin_memcpy(p, ptr, n);

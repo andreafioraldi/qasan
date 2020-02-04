@@ -25,6 +25,8 @@
 
 #include "libqasan.h"
 
+/* Some hooks like strcmp() are not used due to the fact that they do oob
+accesses using SSE */
 char *(*__lq_libc_fgets)(char *, int, FILE *);
 int (*__lq_libc_memcmp)(const void *, const void *, size_t);
 void *(*__lq_libc_memcpy)(void *, const void *, size_t);
@@ -437,7 +439,24 @@ int strcmp(const char *s1, const char *s2) {
   QASAN_LOAD(s1, l1+1);
   size_t l2 = __lq_libc_strlen(s2);
   QASAN_LOAD(s2, l2+1);
-  int r = __lq_libc_strcmp(s1, s2);
+  // int r = __lq_libc_strcmp(s1, s2);
+  int r;
+  while (1) {
+
+    const unsigned char c1 = *s1, c2 = *s2;
+
+    if (c1 != c2) {
+      r = (c1 > c2) ? 1 : -1;
+      break;
+    }
+    if (!c1) {
+      r = 0;
+      break;
+    }
+    s1++;
+    s2++;
+
+  }
   QASAN_LOG("\t\t = %d\n", r);
   
   return r;
@@ -453,7 +472,24 @@ int strncmp(const char *s1, const char *s2, size_t n) {
   QASAN_LOAD(s1, l1);
   size_t l2 = __lq_libc_strnlen(s2, n);
   QASAN_LOAD(s2, l2);
-  int r = __lq_libc_strncmp(s1, s2, n);
+  // int r = __lq_libc_strncmp(s1, s2, n);
+  int r;
+  while (n--) {
+
+    const unsigned char c1 = *s1, c2 = *s2;
+
+    if (c1 != c2) {
+      r = (c1 > c2) ? 1 : -1;
+      break;
+    }
+    if (!c1) {
+      r = 0;
+      break;
+    }
+    s1++;
+    s2++;
+
+  }
   QASAN_LOG("\t\t = %d\n", r);
   
   return r;
