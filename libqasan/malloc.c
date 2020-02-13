@@ -1,27 +1,27 @@
-/*
-  Copyright (c) 2019-2020, Andrea Fioraldi
+/*******************************************************************************
+Copyright (c) 2019-2020, Andrea Fioraldi
 
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-  1. Redistributions of source code must retain the above copyright notice, this
-     list of conditions and the following disclaimer.
-  2. Redistributions in binary form must reproduce the above copyright notice,
-     this list of conditions and the following disclaimer in the documentation
-     and/or other materials provided with the distribution.
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*******************************************************************************/
 
 #include "libqasan.h"
 #include <errno.h>
@@ -32,11 +32,12 @@
 // TODO quarantine
 
 struct chunk_begin {
-  void* fd; // do not overlap these ptmalloc ptrs
-  void* bk;
+
+  void* pad[2];
   size_t requested_size;
-  size_t pad; // for alignment
+  size_t pad1; // for alignment
   char redzone[REDZONE_SIZE];
+
 };
 
 struct chunk_struct {
@@ -73,12 +74,9 @@ void __libqasan_init_malloc(void) {
 
 size_t __libqasan_malloc_usable_size(void * ptr) {
 
-  // if (!__libqasan_malloc_initialized) __libqasan_init_malloc();
-  
   char* p = ptr;
   p -= sizeof(struct chunk_begin);
   
-  // return __lq_libc_malloc_usable_size(p) - sizeof(struct chunk_struct);
   return ((struct chunk_begin*)p)->requested_size;
 
 }
@@ -92,13 +90,19 @@ void * __libqasan_malloc(size_t size) {
     return r;
 
   }
+  
+  int state = QASAN_SWAP(QASAN_DISABLED);
 
   struct chunk_begin* p = __lq_libc_malloc(sizeof(struct chunk_struct) +size);
+  
+  QASAN_SWAP(state);
+
   if (!p) return NULL;
+  
+  QASAN_UNPOISON(p, sizeof(struct chunk_struct) +size);
   
   p->requested_size = size;
   
-  QASAN_UNPOISON(&p[1], size);
   QASAN_ALLOC(&p[1], (char*)&p[1] + size);
   QASAN_POISON(p->redzone, REDZONE_SIZE, ASAN_HEAP_LEFT_RZ);
   if (size & 7)
@@ -124,8 +128,12 @@ void __libqasan_free(void * ptr) {
   size_t n = ((struct chunk_begin*)p)->requested_size;
 
   QASAN_STORE(ptr, n);
+  
+  int state = QASAN_SWAP(QASAN_DISABLED);
 
   __lq_libc_free(p);
+  
+  QASAN_SWAP(state);
   
   if (n & -7)
     n = (n & -7) +8;
@@ -197,7 +205,7 @@ void* __libqasan_memalign(size_t align, size_t len) {
 
   void* ret = NULL;
 
-  posix_memalign(&ret, align, len);
+  __libqasan_posix_memalign(&ret, align, len);
 
   return ret;
 
@@ -209,7 +217,7 @@ void* __libqasan_aligned_alloc(size_t align, size_t len) {
 
   if ((len % align)) return NULL;
 
-  posix_memalign(&ret, align, len);
+  __libqasan_posix_memalign(&ret, align, len);
 
   return ret;
 

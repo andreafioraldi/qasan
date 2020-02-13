@@ -23,65 +23,18 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
-#ifndef __QASAN_H__
-#define __QASAN_H__
+  .intel_syntax noprefix
+  .global __qasan_backdoor
 
-#include <stdio.h>
-#include <unistd.h>
+  .text
 
-#define QASAN_VERSTR "0.1"
-
-#ifdef DEBUG
-#define QASAN_LOG(msg...) do { \
-  if (__qasan_debug) { \
-    fprintf(stderr, "==%d== ", getpid()); \
-    fprintf(stderr, msg); \
-  } \
-} while (0)
-#else
-#define QASAN_LOG(msg...) do {} while (0)
-#endif
-
-#define QASAN_FAKEINSTR_X86 { 0x0f, 0x3a, 0xf2 }
-
-#define QASAN_FAKESYS_NR 0xa2a4
-
-enum {
-  QASAN_ACTION_CHECK_LOAD,
-  QASAN_ACTION_CHECK_STORE,
-  QASAN_ACTION_POISON,
-  QASAN_ACTION_USER_POISON,
-  QASAN_ACTION_UNPOISON,
-  QASAN_ACTION_ALLOC,
-  QASAN_ACTION_DEALLOC,
-  QASAN_ACTION_ENABLE,
-  QASAN_ACTION_DISABLE,
-  QASAN_ACTION_SWAP_STATE,
-};
-
-extern int __qasan_debug;
-
-/* shadow map byte values */
-#define ASAN_VALID 0x00
-#define ASAN_PARTIAL1 0x01
-#define ASAN_PARTIAL2 0x02
-#define ASAN_PARTIAL3 0x03
-#define ASAN_PARTIAL4 0x04
-#define ASAN_PARTIAL5 0x05
-#define ASAN_PARTIAL6 0x06
-#define ASAN_PARTIAL7 0x07
-#define ASAN_ARRAY_COOKIE 0xac
-#define ASAN_STACK_RZ 0xf0
-#define ASAN_STACK_LEFT_RZ 0xf1
-#define ASAN_STACK_MID_RZ 0xf2
-#define ASAN_STACK_RIGHT_RZ 0xf3
-#define ASAN_STACK_FREED 0xf5
-#define ASAN_STACK_OOSCOPE 0xf8
-#define ASAN_GLOBAL_RZ 0xf9
-#define ASAN_HEAP_RZ 0xe9
-#define ASAN_USER 0xf7
-#define ASAN_HEAP_LEFT_RZ 0xfa
-#define ASAN_HEAP_RIGHT_RZ 0xfb
-#define ASAN_HEAP_FREED 0xfd
-
-#endif
+# void* __qasan_backdoor(int, void*, void*, void*)
+__qasan_backdoor:
+  mov rax, rdi # action
+  mov rdi, rsi # arg1
+  mov rsi, rdx # arg2
+  mov rdx, rcx # arg3
+  .byte 0x0f
+  .byte 0x3a
+  .byte 0xf2
+  ret

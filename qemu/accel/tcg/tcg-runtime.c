@@ -195,6 +195,7 @@ __thread CPUState* qasan_cpu;
 int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
 
 int __qasan_debug;
+int qasan_disabled;
 
 #define MAX_ASAN_CALL_STACK 16
 
@@ -485,6 +486,21 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         case QASAN_ACTION_DEALLOC:
           break;
 #endif
+
+        case QASAN_ACTION_ENABLE:
+        qasan_disabled = 0;
+        break;
+        
+        case QASAN_ACTION_DISABLE:
+        qasan_disabled = 1;
+        break;
+
+        case QASAN_ACTION_SWAP_STATE: {
+          int r = qasan_disabled;
+          qasan_disabled = arg1;
+          return r;
+        }
+
         default:
         QASAN_LOG("Invalid QASAN action %d\n", action);
         abort();
@@ -523,6 +539,8 @@ void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
 
 void HELPER(qasan_load1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);
 #endif
@@ -538,6 +556,8 @@ void HELPER(qasan_load1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 }
 
 void HELPER(qasan_load2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+
+  if (qasan_disabled) return;
 
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);
@@ -555,6 +575,8 @@ void HELPER(qasan_load2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
 void HELPER(qasan_load4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);
 #endif
@@ -570,6 +592,8 @@ void HELPER(qasan_load4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 }
 
 void HELPER(qasan_load8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+
+  if (qasan_disabled) return;
 
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);
@@ -587,6 +611,8 @@ void HELPER(qasan_load8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
 void HELPER(qasan_store1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);
 #endif
@@ -602,6 +628,8 @@ void HELPER(qasan_store1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 }
 
 void HELPER(qasan_store2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+
+  if (qasan_disabled) return;
 
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);
@@ -619,6 +647,8 @@ void HELPER(qasan_store2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
 void HELPER(qasan_store4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);
 #endif
@@ -634,6 +664,8 @@ void HELPER(qasan_store4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 }
 
 void HELPER(qasan_store8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+
+  if (qasan_disabled) return;
 
 #ifndef CONFIG_USER_ONLY
   qasan_cpu = ENV_GET_CPU(env);

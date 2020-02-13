@@ -23,65 +23,35 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
-#ifndef __QASAN_H__
-#define __QASAN_H__
+#include "libqasan.h"
+#include "map_macro.h"
 
-#include <stdio.h>
-#include <unistd.h>
+#define X_GET_FNPAR(type, name) name
+#define GET_FNPAR(x) X_GET_FNPAR x
+#define X_GET_FNTYPE(type, name) type
+#define GET_FNTYPE(x) X_GET_FNTYPE x
+#define X_GET_FNDECL(type, name) type name
+#define GET_FNDECL(x) X_GET_FNDECL x
 
-#define QASAN_VERSTR "0.1"
+#define HOOK_UNINSTRUMENT(rettype, name, ...) \
+rettype (*__lq_libc_##name)(MAP_LIST(GET_FNTYPE, __VA_ARGS__)); \
+rettype name (MAP_LIST(GET_FNDECL, __VA_ARGS__)) { \
+ \
+  if (!(__lq_libc_##name)) \
+    __lq_libc_##name = ASSERT_DLSYM(name); \
+  int state = QASAN_SWAP(QASAN_DISABLED); \
+  rettype r = __lq_libc_##name(MAP_LIST(GET_FNPAR, __VA_ARGS__)); \
+  QASAN_SWAP(state); \
+ \
+  return r; \
+ \
+}
 
-#ifdef DEBUG
-#define QASAN_LOG(msg...) do { \
-  if (__qasan_debug) { \
-    fprintf(stderr, "==%d== ", getpid()); \
-    fprintf(stderr, msg); \
-  } \
-} while (0)
-#else
-#define QASAN_LOG(msg...) do {} while (0)
-#endif
+HOOK_UNINSTRUMENT(char*, setlocale, (int, category), (const char *, locale))
+HOOK_UNINSTRUMENT(int, setenv, (const char *, name), (const char *, value), (int, overwrite))
+HOOK_UNINSTRUMENT(char*, bindtextdomain, (const char *, domainname), (const char *, dirname))
+HOOK_UNINSTRUMENT(char*, bind_textdomain_codeset, (const char *, domainname), (const char *, codeset))
+HOOK_UNINSTRUMENT(char*, gettext, (const char *, msgid))
+HOOK_UNINSTRUMENT(char*, dgettext, (const char *, domainname), (const char *, msgid))
+HOOK_UNINSTRUMENT(char*, dcgettext, (const char *, domainname), (const char *, msgid), (int, category))
 
-#define QASAN_FAKEINSTR_X86 { 0x0f, 0x3a, 0xf2 }
-
-#define QASAN_FAKESYS_NR 0xa2a4
-
-enum {
-  QASAN_ACTION_CHECK_LOAD,
-  QASAN_ACTION_CHECK_STORE,
-  QASAN_ACTION_POISON,
-  QASAN_ACTION_USER_POISON,
-  QASAN_ACTION_UNPOISON,
-  QASAN_ACTION_ALLOC,
-  QASAN_ACTION_DEALLOC,
-  QASAN_ACTION_ENABLE,
-  QASAN_ACTION_DISABLE,
-  QASAN_ACTION_SWAP_STATE,
-};
-
-extern int __qasan_debug;
-
-/* shadow map byte values */
-#define ASAN_VALID 0x00
-#define ASAN_PARTIAL1 0x01
-#define ASAN_PARTIAL2 0x02
-#define ASAN_PARTIAL3 0x03
-#define ASAN_PARTIAL4 0x04
-#define ASAN_PARTIAL5 0x05
-#define ASAN_PARTIAL6 0x06
-#define ASAN_PARTIAL7 0x07
-#define ASAN_ARRAY_COOKIE 0xac
-#define ASAN_STACK_RZ 0xf0
-#define ASAN_STACK_LEFT_RZ 0xf1
-#define ASAN_STACK_MID_RZ 0xf2
-#define ASAN_STACK_RIGHT_RZ 0xf3
-#define ASAN_STACK_FREED 0xf5
-#define ASAN_STACK_OOSCOPE 0xf8
-#define ASAN_GLOBAL_RZ 0xf9
-#define ASAN_HEAP_RZ 0xe9
-#define ASAN_USER 0xf7
-#define ASAN_HEAP_LEFT_RZ 0xfa
-#define ASAN_HEAP_RIGHT_RZ 0xfb
-#define ASAN_HEAP_FREED 0xfd
-
-#endif

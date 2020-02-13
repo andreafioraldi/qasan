@@ -1,27 +1,27 @@
-/*
-  Copyright (c) 2019-2020, Andrea Fioraldi
+/*******************************************************************************
+Copyright (c) 2019-2020, Andrea Fioraldi
 
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-  1. Redistributions of source code must retain the above copyright notice, this
-     list of conditions and the following disclaimer.
-  2. Redistributions in binary form must reproduce the above copyright notice,
-     this list of conditions and the following disclaimer in the documentation
-     and/or other materials provided with the distribution.
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*******************************************************************************/
 
 #ifndef __LIBQASAN_H__
 #define __LIBQASAN_H__
@@ -38,6 +38,9 @@
 
 #define DEBUG
 #include "qasan.h"
+
+#define QASAN_ENABLED (0)
+#define QASAN_DISABLED (1)
 
 #if __x86_64__ || __i386__
 
@@ -80,6 +83,19 @@ void* __qasan_backdoor(int, void*, void*, void*);
 #define QASAN_DEALLOC(ptr) \
   QASAN_CALL1(QASAN_ACTION_DEALLOC, ptr)
 
+#define QASAN_SWAP(state) \
+  QASAN_CALL1(QASAN_ACTION_SWAP_STATE, state)
+
+#define ASSERT_DLSYM(name) \
+({ \
+  void* a = (void*)dlsym(RTLD_NEXT, # name); \
+  if (!a) { \
+    fprintf(stderr, "FATAL ERROR: failed dlsym of " # name " in libqasan!\n"); \
+    abort(); \
+  } \
+  a; \
+})
+
 void __libqasan_init_hooks(void);
 void __libqasan_init_malloc(void);
 
@@ -91,5 +107,20 @@ void*  __libqasan_realloc(void* ptr, size_t size);
 int    __libqasan_posix_memalign(void** ptr, size_t align, size_t len);
 void*  __libqasan_memalign(size_t align, size_t len);
 void*  __libqasan_aligned_alloc(size_t align, size_t len);
+
+void *__libqasan_memcpy(void *dest, const void *src, size_t n);
+void *__libqasan_memmove(void *dest, const void *src, size_t n);
+void *__libqasan_memset(void *s, int c, size_t n);
+size_t __libqasan_strlen(const char* s);
+size_t __libqasan_strnlen(const char* s, size_t len);
+int __libqasan_strcmp(const char* str1, const char* str2);
+int __libqasan_strncmp(const char* str1, const char* str2, size_t len);
+int __libqasan_strcasecmp(const char* str1, const char* str2);
+int __libqasan_strncasecmp(const char* str1, const char* str2, size_t len);
+int __libqasan_memcmp(const void* mem1, const void* mem2, size_t len);
+int __libqasan_bcmp(const void* mem1, const void* mem2, size_t len);
+char* __libqasan_strstr(const char* haystack, const char* needle);
+char* __libqasan_strcasestr(const char* haystack, const char* needle);
+void* __libqasan_memmem(const void* haystack, size_t haystack_len, const void* needle, size_t needle_len);
 
 #endif
