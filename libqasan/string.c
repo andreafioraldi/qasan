@@ -30,6 +30,9 @@ void *__libqasan_memcpy(void *dest, const void *src, size_t n) {
 
   unsigned char* d = dest;
   const unsigned char* s = src;
+  
+  if (!n) return dest;
+  
   while (n--) {
     *d = *s;
     ++d;
@@ -44,6 +47,8 @@ void *__libqasan_memmove(void *dest, const void *src, size_t n) {
 
   unsigned char* d = dest;
   const unsigned char* s = src;
+  
+  if (!n) return dest;
 
   if (!((d+n) >= s && d <= (s+n))) // do not overlap
     return __libqasan_memcpy(dest, src, n);
@@ -76,9 +81,9 @@ size_t __libqasan_strlen(const char* s) {
 
 size_t __libqasan_strnlen(const char* s, size_t len) {
 
-  const char* i = s;
-  while (len-- && *(i++));
-  return i - s -1;  
+  size_t r = 0;
+  while (len-- && *(s++)) ++r;
+  return r;  
 
 }
 
@@ -88,12 +93,14 @@ int __libqasan_strcmp(const char* str1, const char* str2) {
 
     const unsigned char c1 = *str1, c2 = *str2;
 
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
+    if (c1 != c2) return c1 - c2;
     if (!c1) return 0;
     str1++;
     str2++;
 
   }
+  
+  return 0;
 
 }
 
@@ -103,8 +110,8 @@ int __libqasan_strncmp(const char* str1, const char* str2, size_t len) {
 
     unsigned char c1 = *str1, c2 = *str2;
 
+    if (c1 != c2) return c1 - c2;
     if (!c1) return 0;
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
     str1++;
     str2++;
 
@@ -120,12 +127,14 @@ int __libqasan_strcasecmp(const char* str1, const char* str2) {
 
     const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
 
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
+    if (c1 != c2) return c1 - c2;
     if (!c1) return 0;
     str1++;
     str2++;
 
   }
+  
+  return 0;
 
 }
 
@@ -135,8 +144,8 @@ int __libqasan_strncasecmp(const char* str1, const char* str2, size_t len) {
 
     const unsigned char c1 = tolower(*str1), c2 = tolower(*str2);
 
+    if (c1 != c2) return c1 - c2;
     if (!c1) return 0;
-    if (c1 != c2) return (c1 > c2) ? 1 : -1;
     str1++;
     str2++;
 
@@ -242,3 +251,25 @@ void* __libqasan_memmem(const void* haystack, size_t haystack_len,
   return 0;
 
 }
+
+char *__libqasan_strchr(const char *s, int c) {
+
+  while (*s != (char)c)
+    if (!*s++)
+      return 0;
+  return (char *)s;
+
+}
+
+char *__libqasan_strrchr(const char *s, int c) {
+
+  char* r = NULL;
+  do
+    if (*s == (char)c)
+      r = (char*)s;
+  while (*s++);
+  
+  return r;
+
+}
+

@@ -122,5 +122,7 @@ int __libqasan_bcmp(const void* mem1, const void* mem2, size_t len);
 char* __libqasan_strstr(const char* haystack, const char* needle);
 char* __libqasan_strcasestr(const char* haystack, const char* needle);
 void* __libqasan_memmem(const void* haystack, size_t haystack_len, const void* needle, size_t needle_len);
+char *__libqasan_strchr(const char *s, int c);
+char *__libqasan_strrchr(const char *s, int c);
 
 #endif

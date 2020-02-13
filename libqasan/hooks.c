@@ -27,8 +27,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "map_macro.h"
 
 char *(*__lq_libc_fgets)(char *, int, FILE *);
-char *(*__lq_libc_strchr)(const char *, int);
-char *(*__lq_libc_strrchr)(const char *, int);
 int (*__lq_libc_atoi)(const char *);
 long (*__lq_libc_atol)(const char *);
 long long (*__lq_libc_atoll)(const char *);
@@ -38,8 +36,6 @@ void __libqasan_init_hooks(void) {
   __libqasan_init_malloc();
 
   __lq_libc_fgets = ASSERT_DLSYM(fgets);
-  __lq_libc_strchr = ASSERT_DLSYM(strchr);
-  __lq_libc_strrchr = ASSERT_DLSYM(strrchr);
   __lq_libc_atoi = ASSERT_DLSYM(atoi);
   __lq_libc_atol = ASSERT_DLSYM(atol);
   __lq_libc_atoll = ASSERT_DLSYM(atoll);
@@ -269,7 +265,7 @@ int bcmp(const void *s1, const void *s2, size_t n) {
   QASAN_LOG("%14p: bcmp(%p, %p, %ld)\n", rtv, s1, s2, n);
   QASAN_LOAD(s1, n);
   QASAN_LOAD(s2, n);
-  int r = !!__libqasan_memcmp(s1, s2, n);
+  int r = __libqasan_bcmp(s1, s2, n);
   QASAN_LOG("\t\t = %d\n", r);
   
   return r;
@@ -283,7 +279,7 @@ char *strchr(const char *s, int c) {
   QASAN_LOG("%14p: strchr(%p, %d)\n", rtv, s, c);
   size_t l = __libqasan_strlen(s);
   QASAN_LOAD(s, l+1);
-  void * r = __lq_libc_strchr(s, c);
+  void * r = __libqasan_strchr(s, c);
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -297,7 +293,7 @@ char *strrchr(const char *s, int c) {
   QASAN_LOG("%14p: strrchr(%p, %d)\n", rtv, s, c);
   size_t l = __libqasan_strlen(s);
   QASAN_LOAD(s, l+1);
-  void * r = __lq_libc_strrchr(s, c);
+  void * r = __libqasan_strrchr(s, c);
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
@@ -345,24 +341,6 @@ char *strcat(char *dest, const char *src) {
   QASAN_LOAD(src, l2+1);
   size_t l1 = __libqasan_strlen(dest);
   QASAN_STORE(dest, l1+l2+1);
-  __libqasan_memcpy(dest +l1, src, l2);
-  dest[l1 + l2] = 0;
-  void * r = dest;
-  QASAN_LOG("\t\t = %p\n", r);
-  
-  return r;
-
-}
-
-char *strncat(char *dest, const char *src, size_t n) {
-
-  void * rtv = __builtin_return_address(0);
-
-  QASAN_LOG("%14p: strncat(%p, %p, %ld)\n", rtv, dest, src, n);
-  size_t l1 = __libqasan_strlen(dest);
-  QASAN_STORE(dest, l1+n+1);
-  size_t l2 = __libqasan_strnlen(src, n);
-  QASAN_LOAD(src, l2);
   __libqasan_memcpy(dest +l1, src, l2);
   dest[l1 + l2] = 0;
   void * r = dest;
@@ -425,12 +403,34 @@ char *strncpy(char *dest, const char *src, size_t n) {
 
   QASAN_LOG("%14p: strncpy(%p, %p, %ld)\n", rtv, dest, src, n);
   size_t l = __libqasan_strnlen(src, n);
-  QASAN_LOAD(src, l);
   QASAN_STORE(dest, n);
-  void * r = __libqasan_memcpy(dest, src, n);
+  void * r;
+  if (l < n) {
+    QASAN_LOAD(src, l+1);
+    r = __libqasan_memcpy(dest, src, l+1);
+  } else {
+    QASAN_LOAD(src, n);
+    r = __libqasan_memcpy(dest, src, n);
+  }
   QASAN_LOG("\t\t = %p\n", r);
   
   return r;
+
+}
+
+char *stpcpy(char *dest, const char *src) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_LOG("%14p: stpcpy(%p, %p)\n", rtv, dest, src);
+  size_t l = __libqasan_strlen(src) +1;
+  QASAN_LOAD(src, l);
+  QASAN_STORE(dest, l);
+  char * r = __libqasan_memcpy(dest, src, l) + (l-1);
+  QASAN_LOG("\t\t = %p\n", r);
+  
+  return r;
+
 
 }
 

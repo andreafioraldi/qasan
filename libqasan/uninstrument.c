@@ -49,9 +49,16 @@ rettype name (MAP_LIST(GET_FNDECL, __VA_ARGS__)) { \
 
 HOOK_UNINSTRUMENT(char*, setlocale, (int, category), (const char *, locale))
 HOOK_UNINSTRUMENT(int, setenv, (const char *, name), (const char *, value), (int, overwrite))
+HOOK_UNINSTRUMENT(char*, getenv, (const char *, name))
 HOOK_UNINSTRUMENT(char*, bindtextdomain, (const char *, domainname), (const char *, dirname))
 HOOK_UNINSTRUMENT(char*, bind_textdomain_codeset, (const char *, domainname), (const char *, codeset))
 HOOK_UNINSTRUMENT(char*, gettext, (const char *, msgid))
 HOOK_UNINSTRUMENT(char*, dgettext, (const char *, domainname), (const char *, msgid))
 HOOK_UNINSTRUMENT(char*, dcgettext, (const char *, domainname), (const char *, msgid), (int, category))
+HOOK_UNINSTRUMENT(int, __gen_tempname, (char, *tmpl), (int, suffixlen), (int, flags), (int, kind))
+HOOK_UNINSTRUMENT(int, mkstemp, (char *, template))
+HOOK_UNINSTRUMENT(int, mkostemp, (char *, template), (int, flags))
+HOOK_UNINSTRUMENT(int, mkstemps, (char *, template), (int, suffixlen))
+HOOK_UNINSTRUMENT(int, mkostemps, (char *, template), (int, suffixlen), (int, flags))
+
 
