@@ -40,6 +40,10 @@ Build using the `build.py` script specifying the path to the ASan DSO.
 
 On Ubuntu 18.04, the path is `/usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so`
 
+Note that QASan will not output meaningful stacktraces or error reports when using this mode.
+
+The reported errors show informaton about the QEMU host and so they are not useful for debugging.
+
 ### other options
 
 Other available build options are:
@@ -49,7 +53,7 @@ Other available build options are:
 + `--cross` to specify the cross C compiler for libqasan
 + `--clean` to clean builded files
 
-Tested only on Ubuntu 18.04.
+Tested only on Ubuntu 18.04 with x86[_64] and arm[64] targets.
 
 ## Usage
 
@@ -61,11 +65,10 @@ To get a verbose debug output of the hooked actions:
 
 `./qasan --verbose ./program args...`
 
-Note that QASan will not output meaningful stacktraces or error reports.
+By default, only the main executable memory accesses are instrumented. To enable the instrumentation of all the libraries, use `AFL_INST_LIBS=1`.
 
-The reported errors show informaton about the QEMU host and so they are not useful for debugging, I suggest to use Valgrind instead.
-
-As the main use case is fuzzing and the advantage over other binary-level memory checkers is the speed, they are not really needed.
+Beware that glibc have a lot of assumptions on buffer size and a lot of handwritten magic (see [this](https://twitter.com/andreafioraldi/status/1227635146452541441)).
+If you have an error caused by these optimizations you can disable the instrumentation for single functions adding them to [libqasan/uninstrument.c](libqasan/uninstrument.c).
 
 ### Fuzzing
 
@@ -92,10 +95,6 @@ Another discriminat for the choice is [CompareCoverage](https://andreafioraldi.g
 > QEMU segfaults with big endian archs
 
 See https://bugs.launchpad.net/qemu/+bug/1701798, use the workaround described here.
-
-> MIPS doesn't work!
-
-There are issues with the compatibility of the address spaces between MIPS and x86 ASan.
 
 ## Performance
 
