@@ -4,14 +4,35 @@
 
 QASan is a custom QEMU 3.1.1 that detects memory errors in the guest using clang's AddressSanitizer.
 
+Dowload it with:
+
+```
+git clone --recursive https://github.com/andreafioraldi/qasan.git
+```
+
 ## Build
 
-Tested only on Ubuntu 18.04 with clang-8 installed.
+QASan comes in two possible twists, one based on my own ASan implementation and the other on the clang's implementation of ASan.
+
+`build.py` is the script used to build all.
+
+The flag `--system` allows you to build full-system QASan, an experimental feature ATM.
+
+### asan-giovese
+
+asan-giovese is my implementation of AddressSanitizer. It is in pure C99 and allows
+you to get useful informations from the target process like stacktraces on allocations
+and on errors.
+
+It will be the only supported option in future, but at the moment is not already completely thread safe.
+
+This is the default mode, built when you don't specify the `--asan-dso` flag.
+
+### compiler-rt ASan
 
 You need the lief python3 package.
 
 Build using the `build.py` script specifying the path to the ASan DSO.
-
 
 ```
 ./build.py --asan-dso /path/to/libclang_rt.asan-ARCH.so
@@ -19,16 +40,16 @@ Build using the `build.py` script specifying the path to the ASan DSO.
 
 On Ubuntu 18.04, the path is `/usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so`
 
-Other available options are:
+### other options
+
+Other available build options are:
 
 + `--arch` to specify the target architecture (default is x86_64)
 + `--cc` and `--cxx` to specify C and C++ compilers (default clang-8)
 + `--cross` to specify the cross C compiler for libqasan
 + `--clean` to clean builded files
 
-ATM, the supported architectures are x86, x86_64, arm and arm64.
-
-Note that the ASan DSO architecture must be coherent with the bits of the target arch (with x86 and ARM you need `libclang_rt.asan-i386.so`).
+Tested only on Ubuntu 18.04.
 
 ## Usage
 
