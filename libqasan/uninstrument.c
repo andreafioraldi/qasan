@@ -25,7 +25,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libqasan.h"
 #include "map_macro.h"
-
+#include <sys/types.h>
+#include <pwd.h>
+ 
 #define X_GET_FNPAR(type, name) name
 #define GET_FNPAR(x) X_GET_FNPAR x
 #define X_GET_FNTYPE(type, name) type
@@ -60,5 +62,7 @@ HOOK_UNINSTRUMENT(int, mkstemp, (char *, template))
 HOOK_UNINSTRUMENT(int, mkostemp, (char *, template), (int, flags))
 HOOK_UNINSTRUMENT(int, mkstemps, (char *, template), (int, suffixlen))
 HOOK_UNINSTRUMENT(int, mkostemps, (char *, template), (int, suffixlen), (int, flags))
-
-
+HOOK_UNINSTRUMENT(struct passwd *, getpwnam, (const char *, name))
+HOOK_UNINSTRUMENT(struct passwd *, getpwuid, (uid_t, uid))
+HOOK_UNINSTRUMENT(int, getpwnam_r, (const char *, name), (struct passwd *, pwd), (char *, buf), (size_t, buflen), (struct passwd **, result))
+HOOK_UNINSTRUMENT(int, getpwuid_r, (uid_t, uid), (struct passwd *, pwd), (char *, buf), (size_t, buflen), (struct passwd **, result))
