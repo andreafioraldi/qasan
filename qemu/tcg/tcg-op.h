@@ -354,21 +354,21 @@ static inline void tcg_gen_movi_i32(TCGv_i32 ret, int32_t arg)
 static inline void tcg_gen_ld8u_i32(TCGv_i32 ret, TCGv_ptr arg2,
                                     tcg_target_long offset)
 {
-    qasan_gen_load1(arg2, offset);
+    // qasan_gen_load1(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_ld8u_i32, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld8s_i32(TCGv_i32 ret, TCGv_ptr arg2,
                                     tcg_target_long offset)
 {
-    qasan_gen_load1(arg2, offset);
+    // qasan_gen_load1(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_ld8s_i32, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld16u_i32(TCGv_i32 ret, TCGv_ptr arg2,
                                      tcg_target_long offset)
 {
-    qasan_gen_load2(arg2, offset);
+    // qasan_gen_load2(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_ld16u_i32, ret, arg2, offset);
 }
 
@@ -376,7 +376,7 @@ static inline void tcg_gen_ld16s_i32(TCGv_i32 ret, TCGv_ptr arg2,
                                      tcg_target_long offset)
 {
 
-    qasan_gen_load2(arg2, offset);
+    // qasan_gen_load2(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_ld16s_i32, ret, arg2, offset);
 }
 
@@ -384,28 +384,28 @@ static inline void tcg_gen_ld_i32(TCGv_i32 ret, TCGv_ptr arg2,
                                   tcg_target_long offset)
 {
 
-    qasan_gen_load4(arg2, offset);
+    // qasan_gen_load4(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_ld_i32, ret, arg2, offset);
 }
 
 static inline void tcg_gen_st8_i32(TCGv_i32 arg1, TCGv_ptr arg2,
                                    tcg_target_long offset)
 {
-    qasan_gen_store1(arg2, offset);
+    // qasan_gen_store1(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_st8_i32, arg1, arg2, offset);
 }
 
 static inline void tcg_gen_st16_i32(TCGv_i32 arg1, TCGv_ptr arg2,
                                     tcg_target_long offset)
 {
-    qasan_gen_store2(arg2, offset);
+    // qasan_gen_store2(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_st16_i32, arg1, arg2, offset);
 }
 
 static inline void tcg_gen_st_i32(TCGv_i32 arg1, TCGv_ptr arg2,
                                   tcg_target_long offset)
 {
-    qasan_gen_store4(arg2, offset);
+    // qasan_gen_store4(arg2, offset);
     tcg_gen_ldst_op_i32(INDEX_op_st_i32, arg1, arg2, offset);
 }
 
@@ -562,77 +562,77 @@ static inline void tcg_gen_movi_i64(TCGv_i64 ret, int64_t arg)
 static inline void tcg_gen_ld8u_i64(TCGv_i64 ret, TCGv_ptr arg2,
                                     tcg_target_long offset)
 {
-    qasan_gen_load1(arg2, offset);
+    // qasan_gen_load1(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_ld8u_i64, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld8s_i64(TCGv_i64 ret, TCGv_ptr arg2,
                                     tcg_target_long offset)
 {
-    qasan_gen_load1(arg2, offset);
+    // qasan_gen_load1(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_ld8s_i64, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld16u_i64(TCGv_i64 ret, TCGv_ptr arg2,
                                      tcg_target_long offset)
 {
-    qasan_gen_load2(arg2, offset);
+    // qasan_gen_load2(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_ld16u_i64, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld16s_i64(TCGv_i64 ret, TCGv_ptr arg2,
                                      tcg_target_long offset)
 {
-    qasan_gen_load2(arg2, offset);
+    // qasan_gen_load2(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_ld16s_i64, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld32u_i64(TCGv_i64 ret, TCGv_ptr arg2,
                                      tcg_target_long offset)
 {
-    qasan_gen_load4(arg2, offset);
+    // qasan_gen_load4(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_ld32u_i64, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld32s_i64(TCGv_i64 ret, TCGv_ptr arg2,
                                      tcg_target_long offset)
 {
-    qasan_gen_load4(arg2, offset);
+    // qasan_gen_load4(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_ld32s_i64, ret, arg2, offset);
 }
 
 static inline void tcg_gen_ld_i64(TCGv_i64 ret, TCGv_ptr arg2,
                                   tcg_target_long offset)
 {
-    qasan_gen_load8(arg2, offset);
+    // qasan_gen_load8(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_ld_i64, ret, arg2, offset);
 }
 
 static inline void tcg_gen_st8_i64(TCGv_i64 arg1, TCGv_ptr arg2,
                                    tcg_target_long offset)
 {
-    qasan_gen_store1(arg2, offset);
+    // qasan_gen_store1(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_st8_i64, arg1, arg2, offset);
 }
 
 static inline void tcg_gen_st16_i64(TCGv_i64 arg1, TCGv_ptr arg2,
                                     tcg_target_long offset)
 {
-    qasan_gen_store2(arg2, offset);
+    // qasan_gen_store2(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_st16_i64, arg1, arg2, offset);
 }
 
 static inline void tcg_gen_st32_i64(TCGv_i64 arg1, TCGv_ptr arg2,
                                     tcg_target_long offset)
 {
-    qasan_gen_store4(arg2, offset);
+    // qasan_gen_store4(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_st32_i64, arg1, arg2, offset);
 }
 
 static inline void tcg_gen_st_i64(TCGv_i64 arg1, TCGv_ptr arg2,
                                   tcg_target_long offset)
 {
-    qasan_gen_store8(arg2, offset);
+    // qasan_gen_store8(arg2, offset);
     tcg_gen_ldst_op_i64(INDEX_op_st_i64, arg1, arg2, offset);
 }
 

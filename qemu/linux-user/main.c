@@ -38,6 +38,8 @@
 #include "target_elf.h"
 #include "cpu_loop-common.h"
 
+#include "qasan-qemu.h"
+
 char *exec_path;
 
 int singlestep;
@@ -599,6 +601,10 @@ int main(int argc, char **argv, char **envp)
     int i;
     int ret;
     int execfd;
+
+#ifdef ASAN_GIOVESE
+    asan_giovese_init();
+#endif
 
     module_call_init(MODULE_INIT_TRACE);
     qemu_init_cpu_list();

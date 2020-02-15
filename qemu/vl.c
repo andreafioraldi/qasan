@@ -132,6 +132,10 @@ int main(int argc, char **argv)
 #include "qapi/qmp/qerror.h"
 #include "sysemu/iothread.h"
 
+#ifdef ASAN_GIOVESE
+void asan_giovese_init(void);
+#endif
+
 #define MAX_VIRTIO_CONSOLES 1
 
 static const char *data_dir[16];
@@ -3007,6 +3011,11 @@ int main(int argc, char **argv, char **envp)
     Error *err = NULL;
     bool list_data_dirs = false;
     char *dir, **dirs;
+    
+#ifdef ASAN_GIOVESE
+    asan_giovese_init();
+#endif
+    
     typedef struct BlockdevOptions_queue {
         BlockdevOptions *bdo;
         Location loc;

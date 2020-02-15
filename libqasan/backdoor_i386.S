@@ -23,49 +23,23 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
-#include "libqasan.h"
+  .intel_syntax noprefix
+  .global __qasan_backdoor
 
-int __qasan_debug;
+  .text
 
-// void* __qasan_backdoor(int a, void* b, void* c, void* d) { return NULL; }
-
-void __libqasan_print_maps(void) {
-
-  int fd = open("/proc/self/maps", O_RDONLY);
-  char buf[4096] = {0};
-  
-  read(fd, buf, 4095);
-  close(fd);
-
-  size_t len = strlen(buf);
-
-  QASAN_LOG("Guest process maps:\n");
-  int i;
-  char * line = NULL;
-  for (i = 0; i < len; i++) {
-    if (!line) line = &buf[i];
-    if (buf[i] == '\n') {
-      buf[i] = 0;
-      QASAN_LOG("%s\n", line);
-      line = NULL;
-    }
-  }
-  if (line) QASAN_LOG("%s\n", line);
-  QASAN_LOG("\n");
-
-}
-
-__attribute__((constructor)) void __libqasan_init() {
-
-  __libqasan_init_hooks();
-  
-  __qasan_debug = getenv("QASAN_DEBUG") != NULL;
-
-  QASAN_LOG("QEMU-AddressSanitizer (v%s)\n", QASAN_VERSTR);
-  QASAN_LOG("Copyright (C) 2019-2020 Andrea Fioraldi <andreafioraldi@gmail.com>\n");
-  QASAN_LOG("\n");
-
-  if (__qasan_debug)
-    __libqasan_print_maps();
-
-}
+# void* __qasan_backdoor(int, void*, void*, void*)
+__qasan_backdoor:
+  push edi
+  push esi
+  mov eax, [esp+12] # action
+  mov edi, [esp+16] # arg1
+  mov esi, [esp+20] # arg2
+  mov edx, [esp+24] # arg3
+  .byte 0x0f
+  .byte 0x3a
+  .byte 0xf2
+  pop esi # wtf
+  pop esi
+  pop edi
+  ret

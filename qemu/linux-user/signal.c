@@ -26,6 +26,8 @@
 #include "trace.h"
 #include "signal-common.h"
 
+#include "qasan-qemu.h"
+
 struct target_sigaltstack target_sigaltstack_used = {
     .ss_sp = 0,
     .ss_size = 0,
@@ -575,6 +577,10 @@ static void QEMU_NORETURN dump_core_and_abort(int target_sig)
     trace_user_force_sig(env, target_sig, host_sig);
     gdb_signalled(env, target_sig);
 
+#ifdef ASAN_GIOVESE
+    asan_giovese_deadly_signal(host_sig, GET_PC(env), GET_PC(env), GET_BP(env), GET_SP(env));
+#endif
+
     /* dump core if supported by target binary format */
     if (core_dump_signal(target_sig) && (ts->bprm->core_dump != NULL)) {
         stop_all_tasks();
@@ -602,6 +608,8 @@ static void QEMU_NORETURN dump_core_and_abort(int target_sig)
     act.sa_handler = SIG_DFL;
     act.sa_flags = 0;
     sigaction(host_sig, &act, NULL);
+
+    
 
     /* For some reason raise(host_sig) doesn't send the signal when
      * statically linked on x86-64. */

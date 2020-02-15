@@ -4,14 +4,35 @@
 
 QASan is a custom QEMU 3.1.1 that detects memory errors in the guest using clang's AddressSanitizer.
 
+Dowload it with:
+
+```
+git clone --recursive https://github.com/andreafioraldi/qasan.git
+```
+
 ## Build
 
-Tested only on Ubuntu 18.04 with clang-8 installed.
+QASan comes in two possible twists, one based on my own ASan implementation and the other on the clang's implementation of ASan.
+
+`build.py` is the script used to build all.
+
+The flag `--system` allows you to build full-system QASan, an experimental feature ATM.
+
+### asan-giovese
+
+asan-giovese is my implementation of AddressSanitizer. It is in pure C99 and allows
+you to get useful informations from the target process like stacktraces on allocations
+and on errors.
+
+It will be the only supported option in future, but at the moment is not already completely thread safe.
+
+This is the default mode, built when you don't specify the `--asan-dso` flag.
+
+### compiler-rt ASan
 
 You need the lief python3 package.
 
 Build using the `build.py` script specifying the path to the ASan DSO.
-
 
 ```
 ./build.py --asan-dso /path/to/libclang_rt.asan-ARCH.so
@@ -19,16 +40,20 @@ Build using the `build.py` script specifying the path to the ASan DSO.
 
 On Ubuntu 18.04, the path is `/usr/lib/llvm-8/lib/clang/8.0.0/lib/linux/libclang_rt.asan-x86_64.so`
 
-Other available options are:
+Note that QASan will not output meaningful stacktraces or error reports when using this mode.
+
+The reported errors show informaton about the QEMU host and so they are not useful for debugging.
+
+### other options
+
+Other available build options are:
 
 + `--arch` to specify the target architecture (default is x86_64)
 + `--cc` and `--cxx` to specify C and C++ compilers (default clang-8)
 + `--cross` to specify the cross C compiler for libqasan
 + `--clean` to clean builded files
 
-ATM, the supported architectures are x86, x86_64, arm and arm64.
-
-Note that the ASan DSO architecture must be coherent with the bits of the target arch (with x86 and ARM you need `libclang_rt.asan-i386.so`).
+Tested only on Ubuntu 18.04 with x86[_64] and arm[64] targets.
 
 ## Usage
 
@@ -40,11 +65,10 @@ To get a verbose debug output of the hooked actions:
 
 `./qasan --verbose ./program args...`
 
-Note that QASan will not output meaningful stacktraces or error reports.
+By default, only the main executable memory accesses are instrumented. To enable the instrumentation of all the libraries, use `AFL_INST_LIBS=1`.
 
-The reported errors show informaton about the QEMU host and so they are not useful for debugging, I suggest to use Valgrind instead.
-
-As the main use case is fuzzing and the advantage over other binary-level memory checkers is the speed, they are not really needed.
+Beware that glibc have a lot of assumptions on buffer size and a lot of handwritten magic (see [this](https://twitter.com/andreafioraldi/status/1227635146452541441)).
+If you have an error caused by these optimizations you can disable the instrumentation for single functions adding them to [libqasan/uninstrument.c](libqasan/uninstrument.c).
 
 ### Fuzzing
 
@@ -71,10 +95,6 @@ Another discriminat for the choice is [CompareCoverage](https://andreafioraldi.g
 > QEMU segfaults with big endian archs
 
 See https://bugs.launchpad.net/qemu/+bug/1701798, use the workaround described here.
-
-> MIPS doesn't work!
-
-There are issues with the compatibility of the address spaces between MIPS and x86 ASan.
 
 ## Performance
 

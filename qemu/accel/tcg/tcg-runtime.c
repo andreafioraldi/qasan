@@ -175,41 +175,291 @@ void HELPER(exit_atomic)(CPUArchState *env)
 #include "qasan-qemu.h"
 
 #ifndef CONFIG_USER_ONLY
+
+__thread CPUState* qasan_cpu;
 #define g2h(x) \
   ({ \
     void *_a; \
-    if (!qasan_addr_to_host(cpu, (x), &_a)) \
-      return (target_ulong)-1; \
+    if (!qasan_addr_to_host(qasan_cpu, (x), &_a)) {\
+      /* fprintf(stderr, "QASan error: virtual address translation for %p failed!\n", (x)); */ \
+      return 0;\
+    } \
     _a; \
   })
+
 // h2g must not be defined
 // #define h2g(x) (x)
+
 #endif
 
 int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
 
 int __qasan_debug;
+int qasan_disabled;
 
-target_long qasan_actions_dispatcher(CPUState *cpu,
+#define MAX_ASAN_CALL_STACK 16
+
+__thread struct shadow_stack qasan_shadow_stack;
+
+#ifdef ASAN_GIOVESE
+
+#include "../../asan-giovese/interval-tree/rbtree.c"
+#include "../../asan-giovese/asan-giovese-inl.h"
+
+void asan_giovese_populate_context(struct call_context* ctx, TARGET_ULONG pc) {
+
+  ctx->size = MIN(qasan_shadow_stack.size, MAX_ASAN_CALL_STACK -1) +1;
+  ctx->addresses = calloc(sizeof(void*), ctx->size);
+  ctx->tid = 0; // TODO
+  ctx->addresses[0] = pc;
+  
+  if (qasan_shadow_stack.size == 0) return;
+  
+  int i, j = 1;
+  for (i = qasan_shadow_stack.first->index -1; i >= 0 && j < MAX_ASAN_CALL_STACK; --i)
+    ctx->addresses[j++] = qasan_shadow_stack.first->buf[i];
+
+  struct shadow_stack_block* b = qasan_shadow_stack.first->next;
+  while (b && j < MAX_ASAN_CALL_STACK) {
+  
+    for (i = SHADOW_BK_SIZE-1; i >= 0; --i)
+      ctx->addresses[j++] = b->buf[i];
+  
+  }
+
+}
+
+#ifdef CONFIG_USER_ONLY
+#include "../../asan-giovese/pmparser.h"
+
+static void addr2line_cmd(char* lib, uintptr_t off, char** function, char** line) {
+  
+  if (getenv("QASAN_DONT_SYMBOLIZE")) goto addr2line_cmd_skip;
+  
+  FILE *fp;
+
+  size_t cmd_siz = 128 + strlen(lib);
+  char* cmd = malloc(cmd_siz);
+  snprintf(cmd, cmd_siz, "addr2line -f -e '%s' 0x%lx", lib, off);
+
+  fp = popen(cmd, "r");
+  free(cmd);
+  
+  if (fp == NULL) goto addr2line_cmd_skip;
+
+  *function = malloc(PATH_MAX + 32);
+  
+  if (!fgets(*function, PATH_MAX + 32, fp) || !strncmp(*function, "??", 2)) {
+
+    free(*function);
+    *function = NULL;
+
+  } else {
+
+    size_t l = strlen(*function);
+    if (l && (*function)[l-1] == '\n')
+      (*function)[l-1] = 0;
+      
+  }
+  
+  *line = malloc(PATH_MAX + 32);
+  
+  if (!fgets(*line, PATH_MAX + 32, fp) || !strncmp(*line, "??:", 3)) {
+
+    free(*line);
+    *line = NULL;
+
+  } else {
+
+    size_t l = strlen(*line);
+    if (l && (*line)[l-1] == '\n')
+      (*line)[l-1] = 0;
+      
+  }
+
+  pclose(fp);
+  
+  return;
+
+addr2line_cmd_skip:
+  *line = NULL;
+  *function = NULL;
+  
+}
+
+char* asan_giovese_printaddr(target_ulong guest_addr) {
+
+  procmaps_iterator* maps = pmparser_parse(-1);
+  procmaps_struct*   maps_tmp = NULL;
+
+  uintptr_t a = (uintptr_t)g2h(guest_addr);
+
+  while ((maps_tmp = pmparser_next(maps)) != NULL) {
+
+    if (a >= (uintptr_t)maps_tmp->addr_start &&
+        a < (uintptr_t)maps_tmp->addr_end) {
+
+      char* s;
+      char * function;
+      char * line;
+      addr2line_cmd(maps_tmp->pathname, a - (uintptr_t)maps_tmp->addr_start,
+                    &function, &line);
+
+      if (function) {
+      
+        if (line) {
+        
+          size_t l = strlen(function) + strlen(line) + 32;
+          s = malloc(l);
+          snprintf(s, l, " in %s %s", function, line);
+          free(line);
+          
+        } else {
+
+          size_t l = strlen(function) + strlen(maps_tmp->pathname) + 32;
+          s = malloc(l);
+          snprintf(s, l, " in %s (%s+0x%lx)", function, maps_tmp->pathname,
+                   a - (uintptr_t)maps_tmp->addr_start);
+          
+        }
+        
+        free(function);
+      
+      } else {
+
+        size_t l = strlen(maps_tmp->pathname) + 32;
+        s = malloc(l);
+        snprintf(s, l, " (%s+0x%lx)", maps_tmp->pathname,
+                 a - (uintptr_t)maps_tmp->addr_start);
+
+      }
+
+      pmparser_free(maps);
+      return s;
+
+    }
+
+  }
+
+  pmparser_free(maps);
+  return NULL;
+
+}
+#else
+char* asan_giovese_printaddr(TARGET_ULONG guest_addr) {
+
+  return NULL;
+
+}
+#endif
+
+#endif
+
+void HELPER(qasan_shadow_stack_push)(target_ulong ptr) {
+
+  if (unlikely(!qasan_shadow_stack.first)) {
+    
+    qasan_shadow_stack.first = malloc(sizeof(struct shadow_stack_block));
+    qasan_shadow_stack.first->index = 0;
+    qasan_shadow_stack.size = 0; // may be negative due to last pop
+    qasan_shadow_stack.first->next = NULL;
+
+  }
+    
+  qasan_shadow_stack.first->buf[qasan_shadow_stack.first->index++] = ptr;
+  qasan_shadow_stack.size++;
+
+  if (qasan_shadow_stack.first->index >= SHADOW_BK_SIZE) {
+
+      struct shadow_stack_block* ns = malloc(sizeof(struct shadow_stack_block));
+      ns->next = qasan_shadow_stack.first;
+      ns->index = 0;
+      qasan_shadow_stack.first = ns;
+  }
+
+}
+
+void HELPER(qasan_shadow_stack_pop)(target_ulong ptr) {
+
+  struct shadow_stack_block* cur_bk = qasan_shadow_stack.first;
+  if (unlikely(cur_bk == NULL)) return;
+
+  do {
+      
+      cur_bk->index--;
+      qasan_shadow_stack.size--;
+      
+      if (cur_bk->index < 0) {
+          
+          struct shadow_stack_block* ns = cur_bk->next;
+          free(cur_bk);
+          cur_bk = ns;
+          if (!cur_bk) break;
+          cur_bk->index--;
+      }
+      
+  } while(cur_bk->buf[cur_bk->index] != ptr);
+  
+  qasan_shadow_stack.first = cur_bk;
+
+}
+
+target_long qasan_actions_dispatcher(void *cpu_env,
                                      target_long action, target_long arg1,
                                      target_long arg2, target_long arg3) {
 
-    /* TODO hack return address and AsanThread stack_top/bottom to get
-       meaningful stacktraces in report.
-       
-    */
-    /*
-    uintptr_t fp = __builtin_frame_address(0);
-    uintptr_t* parent_fp_ptr;
-    uintptr_t saved_parent_fp;
-    if (fp) {
-        parent_fp_ptr = (uintptr_t*)(fp - sizeof(uintptr_t));
-        saved_parent_fp = *parent_fp_ptr;
-        
-    }
-    */
+    CPUArchState *env = cpu_env;
+#ifndef CONFIG_USER_ONLY
+    qasan_cpu = ENV_GET_CPU(env);
+#endif
 
     switch(action) {
+#ifdef ASAN_GIOVESE
+        case QASAN_ACTION_CHECK_LOAD:
+        if (asan_giovese_loadN(arg1, arg2)) {
+          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, arg1, arg2, GET_PC(env), GET_BP(env), GET_SP(env));
+        }
+        break;
+        
+        case QASAN_ACTION_CHECK_STORE:
+        if (asan_giovese_storeN(arg1, arg2)) {
+          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, arg1, arg2, GET_PC(env), GET_BP(env), GET_SP(env));
+        }
+        break;
+        
+        case QASAN_ACTION_POISON:
+        // fprintf(stderr, "POISON: %p %ld %x\n", arg1, arg2, arg3);
+        asan_giovese_poison_region(arg1, arg2, arg3);
+        break;
+        
+        case QASAN_ACTION_USER_POISON:
+        // fprintf(stderr, "USER POISON: %p %ld\n", arg1, arg2);
+        asan_giovese_user_poison_region(arg1, arg2);
+        break;
+        
+        case QASAN_ACTION_UNPOISON:
+        // fprintf(stderr, "UNPOISON: %p %ld\n", arg1, arg2);
+        asan_giovese_unpoison_region(arg1, arg2);
+        break;
+        
+        case QASAN_ACTION_ALLOC: {
+          // fprintf(stderr, "ALLOC: %p - %p\n", arg1, arg2);
+          struct call_context* ctx = calloc(sizeof(struct call_context), 1);
+          asan_giovese_populate_context(ctx, GET_PC(env));
+          asan_giovese_alloc_insert(arg1, arg2, ctx);
+          break;
+        }
+        
+        case QASAN_ACTION_DEALLOC: {
+          // fprintf(stderr, "DEALLOC: %p\n", arg1);
+          struct chunk_info* ckinfo = asan_giovese_alloc_search(arg1);
+          if (ckinfo) {
+            ckinfo->free_ctx = calloc(sizeof(struct call_context), 1);
+            asan_giovese_populate_context(ckinfo->free_ctx, GET_PC(env));
+          }
+          break;
+        }
+#else
         case QASAN_ACTION_CHECK_LOAD:
         __asan_loadN(g2h(arg1), arg2);
         break;
@@ -222,162 +472,34 @@ target_long qasan_actions_dispatcher(CPUState *cpu,
         __asan_poison_memory_region(g2h(arg1), arg2);
         break;
         
+        case QASAN_ACTION_USER_POISON:
+        __asan_poison_memory_region(g2h(arg1), arg2);
+        break;
+        
         case QASAN_ACTION_UNPOISON:
         __asan_unpoison_memory_region(g2h(arg1), arg2);
         break;
+        
+        case QASAN_ACTION_ALLOC:
+          break;
+        
+        case QASAN_ACTION_DEALLOC:
+          break;
+#endif
 
-#if defined(CONFIG_USER_ONLY)        
-        case QASAN_ACTION_MALLOC_USABLE_SIZE:
-        return __interceptor_malloc_usable_size(g2h(arg1));
-        
-        case QASAN_ACTION_MALLOC: {
-            target_long r = h2g(__interceptor_malloc(arg1));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_CALLOC: {
-            target_long r = h2g(__interceptor_calloc(arg1, arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + (arg1 * arg2) + HEAP_PAD,
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_REALLOC: {
-            target_long r = h2g(__interceptor_malloc(arg2));
-            if (r) {
-              page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
-                             PROT_READ | PROT_WRITE | PAGE_VALID);
-              size_t l = __interceptor_malloc_usable_size(g2h(arg1));
-              if (arg2 < l) l = arg2;
-              __asan_memcpy(g2h(r), g2h(arg1), l);
-            }
-            __interceptor_free(g2h(arg1));
-            /*target_long r = h2g(__interceptor_realloc(g2h(arg1), arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);*/
-            return r;
-        }
-        
-        case QASAN_ACTION_POSIX_MEMALIGN: {
-            void ** memptr = (void **)g2h(arg1);
-            target_long r = __interceptor_posix_memalign(memptr, arg2, arg3);
-            if (*memptr) {
-              *memptr = h2g(*memptr);
-              page_set_flags(*memptr - HEAP_PAD, *memptr + arg2 + HEAP_PAD,
-                             PROT_READ | PROT_WRITE | PAGE_VALID);
-            }
-            return r;
-        }
-        
-        case QASAN_ACTION_MEMALIGN: {
-            target_long r = h2g(__interceptor_memalign(arg1, arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_ALIGNED_ALLOC: {
-            target_long r = h2g(__interceptor_aligned_alloc(arg1, arg2));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg2 + HEAP_PAD,
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_VALLOC: {
-            target_long r = h2g(__interceptor_valloc(arg1));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_PVALLOC: {
-            target_long r = h2g(__interceptor_pvalloc(arg1));
-            if (r) page_set_flags(r - HEAP_PAD, r + arg1 + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_FREE:
-        __interceptor_free(g2h(arg1));
+        case QASAN_ACTION_ENABLE:
+        qasan_disabled = 0;
         break;
         
-        case QASAN_ACTION_MEMCMP:
-        return __interceptor_memcmp(g2h(arg1), g2h(arg2), arg3);
-        
-        case QASAN_ACTION_MEMCPY:
-        return h2g(__asan_memcpy(g2h(arg1), g2h(arg2), arg3));
-        
-        case QASAN_ACTION_MEMMOVE:
-        return h2g(__interceptor_memmove(g2h(arg1), g2h(arg2), arg3));
-        
-        case QASAN_ACTION_MEMSET:
-        return h2g(__asan_memset(g2h(arg1), arg2, arg3));
-        
-        case QASAN_ACTION_STRCHR:
-        return h2g(__interceptor_strchr(g2h(arg1), arg2));
-        
-        case QASAN_ACTION_STRCASECMP:
-        return __interceptor_strcasecmp(g2h(arg1), g2h(arg2));
-        
-        case QASAN_ACTION_STRCAT: {
-          // TODO fixme: strange stuffs happens when using ASan strcat...
-          // return h2g(__interceptor_strcat(g2h(arg1), g2h(arg2)));
-          size_t l1 = strlen(g2h(arg1));
-          size_t l2 = strlen(g2h(arg2));
-          __asan_loadN(g2h(arg2), l2);
-          if (l2) {
-            __asan_loadN(g2h(arg1), l1);
-            __asan_storeN(g2h(arg1) +l1, l2 +1);
-          }
-          return h2g(strcat(g2h(arg1), g2h(arg2)));
-        }
-        
-        case QASAN_ACTION_STRCMP:
-        return __interceptor_strcmp(g2h(arg1), g2h(arg2));
-        
-        case QASAN_ACTION_STRCPY:
-        return h2g(__interceptor_strcpy(g2h(arg1), g2h(arg2)));
-        
-        case QASAN_ACTION_STRDUP: {
-            size_t l = __interceptor_strlen(g2h(arg1));
-            target_long r = h2g(__interceptor_strdup(g2h(arg1)));
-            if (r) page_set_flags(r - HEAP_PAD, r + l + HEAP_PAD, 
-                                  PROT_READ | PROT_WRITE | PAGE_VALID);
-            return r;
-        }
-        
-        case QASAN_ACTION_STRLEN:
-        return __interceptor_strlen(g2h(arg1));
-        
-        case QASAN_ACTION_STRNCASECMP:
-        return __interceptor_strncasecmp(g2h(arg1), g2h(arg2), arg3);
-        
-        case QASAN_ACTION_STRNCMP:
-        return __interceptor_strncmp(g2h(arg1), g2h(arg2), arg3);
-       
-        case QASAN_ACTION_STRNCAT:
-        return __interceptor_strncat(g2h(arg1), g2h(arg2), arg3);
+        case QASAN_ACTION_DISABLE:
+        qasan_disabled = 1;
+        break;
 
-        case QASAN_ACTION_STRNCPY:
-        return h2g(__interceptor_strncpy(g2h(arg1), g2h(arg2), arg3));
-        
-        case QASAN_ACTION_STRNLEN:
-        return __interceptor_strnlen(g2h(arg1), arg2);
-        
-        case QASAN_ACTION_STRRCHR:
-        return h2g(__interceptor_strrchr(g2h(arg1), arg2));
-        
-        case QASAN_ACTION_ATOI:
-        return __interceptor_atoi(g2h(arg1));
-        
-        case QASAN_ACTION_ATOL:
-        return __interceptor_atol(g2h(arg1));
-        
-        case QASAN_ACTION_ATOLL:
-        return __interceptor_atoll(g2h(arg1));
-#endif
+        case QASAN_ACTION_SWAP_STATE: {
+          int r = qasan_disabled;
+          qasan_disabled = arg1;
+          return r;
+        }
 
         default:
         QASAN_LOG("Invalid QASAN action %d\n", action);
@@ -390,82 +512,171 @@ target_long qasan_actions_dispatcher(CPUState *cpu,
 void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
                                void* arg2, void* arg3) {
 
-  CPUState *cpu = ENV_GET_CPU(env);
-  return (void*)qasan_actions_dispatcher(cpu,
+  return (void*)qasan_actions_dispatcher(env,
                                          (target_long)action, (target_long)arg1,
                                          (target_long)arg2, (target_long)arg3);
 
 }
 
+#ifndef ASAN_GIOVESE
 #ifndef CONFIG_USER_ONLY
+
 #undef g2h
 #define g2h(x) \
   ({ \
     void *_a; \
-    if (!qasan_addr_to_host(ENV_GET_CPU(env), (x), &_a)) \
-      return; \
+    if (!qasan_addr_to_host(qasan_cpu, (x), &_a)) {\
+      /* fprintf(stderr, "QASan error: virtual address translation for %p failed!\n", (x)); */ \
+      return;\
+    } \
     _a; \
   })
-// h2g must not be defined
-// #define h2g(x) (x)
+
+#endif
 #endif
 
 // TODO find what "off" really does
 
-void HELPER(qasan_load1)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load1((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 1, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
   __asan_load1(addr);
+#endif
 
 }
 
-void HELPER(qasan_load2)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load2((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 2, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
   __asan_load2(addr);
+#endif
 
 }
 
-void HELPER(qasan_load4)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load4((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 4, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
   __asan_load4(addr);
+#endif
 
 }
 
-void HELPER(qasan_load8)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_load8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_load8((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 8, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
-  
   __asan_load8(addr);
+#endif
 
 }
 
-void HELPER(qasan_store1)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store1((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 1, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
   __asan_store1(addr);
+#endif
 
 }
 
-void HELPER(qasan_store2)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store2((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 2, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
   __asan_store2(addr);
+#endif
 
 }
 
-void HELPER(qasan_store4)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store4((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 4, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
   __asan_store4(addr);
+#endif
 
 }
 
-void HELPER(qasan_store8)(CPUArchState *env, void * ptr, uint32_t off) {
+void HELPER(qasan_store8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
 
+  if (qasan_disabled) return;
+
+#ifndef CONFIG_USER_ONLY
+  qasan_cpu = ENV_GET_CPU(env);
+#endif
+#ifdef ASAN_GIOVESE
+  if (asan_giovese_store8((target_long)ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 8, GET_PC(env), GET_BP(env), GET_SP(env));
+  }
+#else
   uintptr_t addr = g2h((target_long)ptr);
   __asan_store8(addr);
+#endif
 
 }
-

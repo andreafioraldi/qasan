@@ -34,56 +34,56 @@
 
 // TODO collapse into a macro
 
-void qasan_gen_load1(TCGv_ptr ptr, int off) {
+void qasan_gen_load1(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_load1(cpu_env, ptr, tcg_const_i32(off));
 
 }
 
-void qasan_gen_load2(TCGv_ptr ptr, int off) {
+void qasan_gen_load2(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_load2(cpu_env, ptr, tcg_const_i32(off));
 
 }
 
-void qasan_gen_load4(TCGv_ptr ptr, int off) {
+void qasan_gen_load4(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_load4(cpu_env, ptr, tcg_const_i32(off));
 
 }
 
-void qasan_gen_load8(TCGv_ptr ptr, int off) {
+void qasan_gen_load8(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_load8(cpu_env, ptr, tcg_const_i32(off));
 
 }
 
-void qasan_gen_store1(TCGv_ptr ptr, int off) {
+void qasan_gen_store1(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_store1(cpu_env, ptr, tcg_const_i32(off));
 
 }
 
-void qasan_gen_store2(TCGv_ptr ptr, int off) {
+void qasan_gen_store2(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_store2(cpu_env, ptr, tcg_const_i32(off));
 
 }
 
-void qasan_gen_store4(TCGv_ptr ptr, int off) {
+void qasan_gen_store4(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_store4(cpu_env, ptr, tcg_const_i32(off));
 
 }
 
-void qasan_gen_store8(TCGv_ptr ptr, int off) {
+void qasan_gen_store8(TCGv ptr, int off) {
   
   if (cur_block_is_good)
     gen_helper_qasan_store8(cpu_env, ptr, tcg_const_i32(off));
