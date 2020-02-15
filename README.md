@@ -20,7 +20,7 @@ The flag `--system` allows you to build full-system QASan, an experimental featu
 
 ### asan-giovese
 
-asan-giovese is my implementation of AddressSanitizer. It is in pure C99 and allows
+asan-giovese is my implementation of AddressSanitizer. It is in pure C11 and allows
 you to get useful informations from the target process like stacktraces on allocations
 and on errors.
 
