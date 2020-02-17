@@ -32,63 +32,40 @@
 #include "trace-tcg.h"
 #include "trace/mem.h"
 
-// TODO collapse into a macro
+#ifdef CONFIG_USER_ONLY
 
-void qasan_gen_load1(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_load1(cpu_env, ptr, tcg_const_i32(off));
-
+#define GEN_QASAN_OP(OP) \
+void qasan_gen_##OP(TCGv addr, int off) { \
+  \
+  (void*)off; \
+  if (cur_block_is_good) \
+    gen_helper_qasan_##OP(cpu_env, addr); \
+ \
 }
 
-void qasan_gen_load2(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_load2(cpu_env, ptr, tcg_const_i32(off));
+#else
 
+#define GEN_QASAN_OP(OP) \
+void qasan_gen_##OP(TCGv addr, int off) { \
+  \
+  if (cur_block_is_good) { \
+    TCGv_i32 idx = tcg_const_i32(off); \
+    gen_helper_qasan_##OP(cpu_env, addr, idx); \
+    tcg_temp_free(idx); \
+  } \
+ \
 }
 
-void qasan_gen_load4(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_load4(cpu_env, ptr, tcg_const_i32(off));
+#endif
 
-}
-
-void qasan_gen_load8(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_load8(cpu_env, ptr, tcg_const_i32(off));
-
-}
-
-void qasan_gen_store1(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_store1(cpu_env, ptr, tcg_const_i32(off));
-
-}
-
-void qasan_gen_store2(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_store2(cpu_env, ptr, tcg_const_i32(off));
-
-}
-
-void qasan_gen_store4(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_store4(cpu_env, ptr, tcg_const_i32(off));
-
-}
-
-void qasan_gen_store8(TCGv ptr, int off) {
-  
-  if (cur_block_is_good)
-    gen_helper_qasan_store8(cpu_env, ptr, tcg_const_i32(off));
-
-}
+GEN_QASAN_OP(load1)
+GEN_QASAN_OP(load2)
+GEN_QASAN_OP(load4)
+GEN_QASAN_OP(load8)
+GEN_QASAN_OP(store1)
+GEN_QASAN_OP(store2)
+GEN_QASAN_OP(store4)
+GEN_QASAN_OP(store8)
 
 /* Reduce the number of ifdefs below.  This assumes that all uses of
    TCGV_HIGH and TCGV_LOW are properly protected by a conditional that
@@ -2763,13 +2740,14 @@ void tcg_gen_qemu_ld_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     memop = tcg_canonicalize_memop(memop, 0, 0);
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 0));
-    switch (memop) {
+                               
+    gen_ldst_i32(INDEX_op_qemu_ld_i32, val, addr, memop, idx);
+    switch (memop & MO_SIZE) {
         case MO_64: qasan_gen_load8(addr, idx); break;
         case MO_32: qasan_gen_load4(addr, idx); break;
         case MO_16: qasan_gen_load2(addr, idx); break;
         case MO_8:  qasan_gen_load1(addr, idx); break;
     }
-    gen_ldst_i32(INDEX_op_qemu_ld_i32, val, addr, memop, idx);
 }
 
 void tcg_gen_qemu_st_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
@@ -2778,13 +2756,14 @@ void tcg_gen_qemu_st_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     memop = tcg_canonicalize_memop(memop, 0, 1);
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 1));
-    switch (memop) {
+    
+    gen_ldst_i32(INDEX_op_qemu_st_i32, val, addr, memop, idx);
+    switch (memop & MO_SIZE) {
         case MO_64: qasan_gen_store8(addr, idx); break;
         case MO_32: qasan_gen_store4(addr, idx); break;
         case MO_16: qasan_gen_store2(addr, idx); break;
         case MO_8:  qasan_gen_store1(addr, idx); break;
     }
-    gen_ldst_i32(INDEX_op_qemu_st_i32, val, addr, memop, idx);
 }
 
 void tcg_gen_qemu_ld_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
@@ -2803,13 +2782,14 @@ void tcg_gen_qemu_ld_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     memop = tcg_canonicalize_memop(memop, 1, 0);
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 0));
-    switch (memop) {
+    
+    gen_ldst_i64(INDEX_op_qemu_ld_i64, val, addr, memop, idx);
+    switch (memop & MO_SIZE) {
         case MO_64: qasan_gen_load8(addr, idx); break;
         case MO_32: qasan_gen_load4(addr, idx); break;
         case MO_16: qasan_gen_load2(addr, idx); break;
         case MO_8:  qasan_gen_load1(addr, idx); break;
     }
-    gen_ldst_i64(INDEX_op_qemu_ld_i64, val, addr, memop, idx);
 }
 
 void tcg_gen_qemu_st_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
@@ -2824,14 +2804,13 @@ void tcg_gen_qemu_st_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     trace_guest_mem_before_tcg(tcg_ctx->cpu, cpu_env,
                                addr, trace_mem_get_info(memop, 1));
     
-    // fprintf(stderr, "mo = %x (%x %x %x %x), %d\n", memop, MO_64, MO_32, MO_16, MO_8, idx);
-    switch (memop) {
+    gen_ldst_i64(INDEX_op_qemu_st_i64, val, addr, memop, idx);
+    switch (memop & MO_SIZE) {
         case MO_64: qasan_gen_store8(addr, idx); break;
         case MO_32: qasan_gen_store4(addr, idx); break;
         case MO_16: qasan_gen_store2(addr, idx); break;
         case MO_8:  qasan_gen_store1(addr, idx); break;
     }
-    gen_ldst_i64(INDEX_op_qemu_st_i64, val, addr, memop, idx);
 }
 
 static void tcg_gen_ext_i32(TCGv_i32 ret, TCGv_i32 val, TCGMemOp opc)

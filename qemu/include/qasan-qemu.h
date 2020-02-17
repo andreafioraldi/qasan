@@ -38,9 +38,9 @@ extern __thread struct shadow_stack qasan_shadow_stack;
 
 #if defined(TARGET_X86_64) || defined(TARGET_I386)
 
-#define GET_PC(env) ((env)->eip)
-#define GET_BP(env) ((env)->regs[R_EBP])
-#define GET_SP(env) ((env)->regs[R_ESP])
+#define PC_GET(env) ((env)->eip)
+#define BP_GET(env) ((env)->regs[R_EBP])
+#define SP_GET(env) ((env)->regs[R_ESP])
 
 #else
 #error "Target not supported by asan-giovese"
@@ -70,13 +70,13 @@ target_long qasan_actions_dispatcher(void *cpu_env, target_long action,
                                      target_long arg1, target_long arg2,
                                      target_long arg3);
 
-void qasan_gen_load1(TCGv ptr, int off);
-void qasan_gen_load2(TCGv ptr, int off);
-void qasan_gen_load4(TCGv ptr, int off);
-void qasan_gen_load8(TCGv ptr, int off);
-void qasan_gen_store1(TCGv ptr, int off);
-void qasan_gen_store2(TCGv ptr, int off);
-void qasan_gen_store4(TCGv ptr, int off);
-void qasan_gen_store8(TCGv ptr, int off);
+void qasan_gen_load1(TCGv addr, int off);
+void qasan_gen_load2(TCGv addr, int off);
+void qasan_gen_load4(TCGv addr, int off);
+void qasan_gen_load8(TCGv addr, int off);
+void qasan_gen_store1(TCGv addr, int off);
+void qasan_gen_store2(TCGv addr, int off);
+void qasan_gen_store4(TCGv addr, int off);
+void qasan_gen_store8(TCGv addr, int off);
 
 #endif

@@ -416,46 +416,47 @@ target_long qasan_actions_dispatcher(void *cpu_env,
     switch(action) {
 #ifdef ASAN_GIOVESE
         case QASAN_ACTION_CHECK_LOAD:
-        if (asan_giovese_loadN(arg1, arg2)) {
-          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, arg1, arg2, GET_PC(env), GET_BP(env), GET_SP(env));
+        //fprintf(stderr, "CHECK LOAD: %p [%p] %ld\n", arg1, g2h(arg1), arg2);
+        if (asan_giovese_guest_loadN(arg1, arg2)) {
+          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, arg1, arg2, PC_GET(env), BP_GET(env), SP_GET(env));
         }
         break;
         
         case QASAN_ACTION_CHECK_STORE:
-        if (asan_giovese_storeN(arg1, arg2)) {
-          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, arg1, arg2, GET_PC(env), GET_BP(env), GET_SP(env));
+        if (asan_giovese_guest_storeN(arg1, arg2)) {
+          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, arg1, arg2, PC_GET(env), BP_GET(env), SP_GET(env));
         }
         break;
         
         case QASAN_ACTION_POISON:
-        // fprintf(stderr, "POISON: %p %ld %x\n", arg1, arg2, arg3);
-        asan_giovese_poison_region(arg1, arg2, arg3);
+        //fprintf(stderr, "POISON: %p [%p] %ld %x\n", arg1, g2h(arg1), arg2, arg3);
+        asan_giovese_poison_guest_region(arg1, arg2, arg3);
         break;
         
         case QASAN_ACTION_USER_POISON:
-        // fprintf(stderr, "USER POISON: %p %ld\n", arg1, arg2);
-        asan_giovese_user_poison_region(arg1, arg2);
+        //fprintf(stderr, "USER POISON: %p [%p] %ld\n", arg1, g2h(arg1), arg2);
+        asan_giovese_user_poison_guest_region(arg1, arg2);
         break;
         
         case QASAN_ACTION_UNPOISON:
-        // fprintf(stderr, "UNPOISON: %p %ld\n", arg1, arg2);
-        asan_giovese_unpoison_region(arg1, arg2);
+        //fprintf(stderr, "UNPOISON: %p [%p] %ld\n", arg1, g2h(arg1), arg2);
+        asan_giovese_unpoison_guest_region(arg1, arg2);
         break;
         
         case QASAN_ACTION_ALLOC: {
-          // fprintf(stderr, "ALLOC: %p - %p\n", arg1, arg2);
+          //fprintf(stderr, "ALLOC: %p - %p\n", arg1, arg2);
           struct call_context* ctx = calloc(sizeof(struct call_context), 1);
-          asan_giovese_populate_context(ctx, GET_PC(env));
+          asan_giovese_populate_context(ctx, PC_GET(env));
           asan_giovese_alloc_insert(arg1, arg2, ctx);
           break;
         }
         
         case QASAN_ACTION_DEALLOC: {
-          // fprintf(stderr, "DEALLOC: %p\n", arg1);
+          //fprintf(stderr, "DEALLOC: %p\n", arg1);
           struct chunk_info* ckinfo = asan_giovese_alloc_search(arg1);
           if (ckinfo) {
             ckinfo->free_ctx = calloc(sizeof(struct call_context), 1);
-            asan_giovese_populate_context(ckinfo->free_ctx, GET_PC(env));
+            asan_giovese_populate_context(ckinfo->free_ctx, PC_GET(env));
           }
           break;
         }
@@ -518,165 +519,576 @@ void* HELPER(qasan_fake_instr)(CPUArchState *env, void* action, void* arg1,
 
 }
 
-#ifndef ASAN_GIOVESE
 #ifndef CONFIG_USER_ONLY
 
-#undef g2h
-#define g2h(x) \
-  ({ \
-    void *_a; \
-    if (!qasan_addr_to_host(qasan_cpu, (x), &_a)) {\
-      /* fprintf(stderr, "QASan error: virtual address translation for %p failed!\n", (x)); */ \
-      return;\
-    } \
-    _a; \
-  })
+//----------------------------------
+// Full system helpers for TLB walk
+//----------------------------------
 
+/* Macro to call the above, with local variables from the use context.  */
+#define VICTIM_TLB_HIT(TY, ADDR) \
+  victim_tlb_hit(env, mmu_idx, index, offsetof(CPUTLBEntry, TY), \
+                 (ADDR) & TARGET_PAGE_MASK)
+
+bool victim_tlb_hit(CPUArchState *env, size_t mmu_idx, size_t index,
+                           size_t elt_ofs, target_ulong page);
+
+void qasan_page_loadN(CPUArchState *env, target_ulong addr, size_t size, uintptr_t mmu_idx)
+{
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+    
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_loadN((void*)haddr, size)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, size, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_loadN((void*)haddr, size);
 #endif
+}
+
+void qasan_page_storeN(CPUArchState *env, target_ulong addr, size_t size, uintptr_t mmu_idx)
+{
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+    
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_storeN((void*)haddr, size)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, size, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_storeN((void*)haddr, size);
 #endif
+}
 
-// TODO find what "off" really does
+void HELPER(qasan_load1)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+    
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
 
-void HELPER(qasan_load1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_load1((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 1, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_load1((void*)haddr);
+#endif
+}
+
+void HELPER(qasan_load2)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+    
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (unlikely((addr & ~TARGET_PAGE_MASK) + 2 - 1
+                    >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+
+        addr1 = addr & ~(2 - 1);
+        addr2 = addr1 + 2;
+        
+        size_t span = addr2 - addr;
+        haddr = addr + entry->addend;
+        
+        // tlb already processed for first half
+#ifdef ASAN_GIOVESE
+        if (asan_giovese_loadN((void*)haddr, span)) {
+          qasan_cpu = ENV_GET_CPU(env);
+          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, span, PC_GET(env), BP_GET(env), SP_GET(env));
+        }
+#else
+        __asan_loadN((void*)haddr, span);
+#endif
+        
+        qasan_page_loadN(env, addr2, 2 - span, mmu_idx);
+        return;
+    }
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_load2((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 2, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_load2((void*)haddr);
+#endif
+}
+
+void HELPER(qasan_load4)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+    
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (unlikely((addr & ~TARGET_PAGE_MASK) + 4 - 1
+                    >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+
+        addr1 = addr & ~(4 - 1);
+        addr2 = addr1 + 4;
+        
+        size_t span = addr2 - addr;
+        haddr = addr + entry->addend;
+        
+        // tlb already processed for first half
+#ifdef ASAN_GIOVESE
+        if (asan_giovese_loadN((void*)haddr, span)) {
+          qasan_cpu = ENV_GET_CPU(env);
+          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, span, PC_GET(env), BP_GET(env), SP_GET(env));
+        }
+#else
+        __asan_loadN((void*)haddr, span);
+#endif
+        
+        qasan_page_loadN(env, addr2, 4 - span, mmu_idx);
+        return;
+    }
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_load4((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 4, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_load4((void*)haddr);
+#endif
+}
+
+void HELPER(qasan_load8)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (unlikely((addr & ~TARGET_PAGE_MASK) + 8 - 1
+                    >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+
+        addr1 = addr & ~(8 - 1);
+        addr2 = addr1 + 8;
+        
+        size_t span = addr2 - addr;
+        haddr = addr + entry->addend;
+        
+        // tlb already processed for first half
+#ifdef ASAN_GIOVESE
+        if (asan_giovese_loadN((void*)haddr, span)) {
+          qasan_cpu = ENV_GET_CPU(env);
+          asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, span, PC_GET(env), BP_GET(env), SP_GET(env));
+        }
+#else
+        __asan_loadN((void*)haddr, span);
+#endif
+        
+        qasan_page_loadN(env, addr2, 8 - span, mmu_idx);
+        return;
+    }
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_load8((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 8, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_load8((void*)haddr);
+#endif
+}
+
+void HELPER(qasan_store1)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+    
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_store1((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 1, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_store1((void*)haddr);
+#endif
+}
+
+void HELPER(qasan_store2)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+    
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (unlikely((addr & ~TARGET_PAGE_MASK) + 2 - 1
+                    >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+
+        addr1 = addr & ~(2 - 1);
+        addr2 = addr1 + 2;
+        
+        size_t span = addr2 - addr;
+        haddr = addr + entry->addend;
+        
+        // tlb already processed for first half
+#ifdef ASAN_GIOVESE
+        if (asan_giovese_storeN((void*)haddr, span)) {
+          qasan_cpu = ENV_GET_CPU(env);
+          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, span, PC_GET(env), BP_GET(env), SP_GET(env));
+        }
+#else
+        __asan_storeN((void*)haddr, span);
+#endif
+        
+        qasan_page_storeN(env, addr2, 2 - span, mmu_idx);
+        return;
+    }
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_store2((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 2, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_store2((void*)haddr);
+#endif
+}
+
+void HELPER(qasan_store4)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+    
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (unlikely((addr & ~TARGET_PAGE_MASK) + 4 - 1
+                    >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+
+        addr1 = addr & ~(4 - 1);
+        addr2 = addr1 + 4;
+        
+        size_t span = addr2 - addr;
+        haddr = addr + entry->addend;
+        
+        // tlb already processed for first half
+#ifdef ASAN_GIOVESE
+        if (asan_giovese_storeN((void*)haddr, span)) {
+          qasan_cpu = ENV_GET_CPU(env);
+          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, span, PC_GET(env), BP_GET(env), SP_GET(env));
+        }
+#else
+        __asan_storeN((void*)haddr, span);
+#endif
+        
+        qasan_page_storeN(env, addr2, 4 - span, mmu_idx);
+        return;
+    }
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_store4((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 4, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_store4((void*)haddr);
+#endif
+}
+
+void HELPER(qasan_store8)(CPUArchState *env, target_ulong addr, uint32_t idx)
+{
+    if (qasan_disabled) return;
+    
+    uintptr_t mmu_idx = idx;
+    CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
+    target_ulong tlb_addr = entry->addr_read;
+    uintptr_t haddr;
+
+    /* It is in the TLB, the check is after the real access */
+    if (!tlb_hit(tlb_addr, addr)) return;
+
+    /* Handle an IO access.  */
+    if (unlikely(tlb_addr & ~TARGET_PAGE_MASK))
+        return;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (unlikely((addr & ~TARGET_PAGE_MASK) + 8 - 1
+                    >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+
+        addr1 = addr & ~(8 - 1);
+        addr2 = addr1 + 8;
+        
+        size_t span = addr2 - addr;
+        haddr = addr + entry->addend;
+        
+        // tlb already processed for first half
+#ifdef ASAN_GIOVESE
+        if (asan_giovese_storeN((void*)haddr, span)) {
+          qasan_cpu = ENV_GET_CPU(env);
+          asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, span, PC_GET(env), BP_GET(env), SP_GET(env));
+        }
+#else
+        __asan_storeN((void*)haddr, span);
+#endif
+        
+        qasan_page_storeN(env, addr2, 8 - span, mmu_idx);
+        return;
+    }
+
+    haddr = addr + entry->addend;
+    
+#ifdef ASAN_GIOVESE
+    if (asan_giovese_store8((void*)haddr)) {
+      qasan_cpu = ENV_GET_CPU(env);
+      asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 8, PC_GET(env), BP_GET(env), SP_GET(env));
+    }
+#else
+    __asan_store8((void*)haddr);
+#endif
+}
+
+#else
+
+//----------------------------------
+// Usermode helpers
+//----------------------------------
+
+void HELPER(qasan_load1)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
+  
+  void* ptr = (void*)g2h(addr);
 
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load1((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 1, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load1(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 1, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_load1(addr);
+  __asan_load1(ptr);
 #endif
 
 }
 
-void HELPER(qasan_load2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+void HELPER(qasan_load2)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
 
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
+  void* ptr = (void*)g2h(addr);
+
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load2((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 2, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load2(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 2, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_load2(addr);
+  __asan_load2(ptr);
 #endif
 
 }
 
-void HELPER(qasan_load4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+void HELPER(qasan_load4)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
+  
+  void* ptr = (void*)g2h(addr);
 
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load4((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 4, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load4(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 4, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_load4(addr);
+  __asan_load4(ptr);
 #endif
 
 }
 
-void HELPER(qasan_load8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+void HELPER(qasan_load8)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
+  
+  void* ptr = (void*)g2h(addr);
 
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_load8((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, (target_long)ptr, 8, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_load8(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, addr, 8, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_load8(addr);
+  __asan_load8(ptr);
 #endif
 
 }
 
-void HELPER(qasan_store1)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+void HELPER(qasan_store1)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
+  
+  void* ptr = (void*)g2h(addr);
 
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store1((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 1, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store1(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 1, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_store1(addr);
+  __asan_store1(ptr);
 #endif
 
 }
 
-void HELPER(qasan_store2)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+void HELPER(qasan_store2)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
-
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
+  
+  void* ptr = (void*)g2h(addr);
+  
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store2((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 2, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store2(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 2, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_store2(addr);
+  __asan_store2(ptr);
 #endif
 
 }
 
-void HELPER(qasan_store4)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+void HELPER(qasan_store4)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
+  
+  void* ptr = (void*)g2h(addr);
 
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store4((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 4, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store4(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 4, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_store4(addr);
+  __asan_store4(ptr);
 #endif
 
 }
 
-void HELPER(qasan_store8)(CPUArchState *env, target_ulong ptr, uint32_t off) {
+void HELPER(qasan_store8)(CPUArchState *env, target_ulong addr) {
 
   if (qasan_disabled) return;
 
-#ifndef CONFIG_USER_ONLY
-  qasan_cpu = ENV_GET_CPU(env);
-#endif
+  void* ptr = (void*)g2h(addr);
+
 #ifdef ASAN_GIOVESE
-  if (asan_giovese_store8((target_long)ptr)) {
-    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, (target_long)ptr, 8, GET_PC(env), GET_BP(env), GET_SP(env));
+  if (asan_giovese_store8(ptr)) {
+    asan_giovese_report_and_crash(ACCESS_TYPE_STORE, addr, 8, PC_GET(env), BP_GET(env), SP_GET(env));
   }
 #else
-  uintptr_t addr = g2h((target_long)ptr);
-  __asan_store8(addr);
+  __asan_store8(ptr);
 #endif
 
 }
+
+#endif

@@ -578,7 +578,7 @@ static void QEMU_NORETURN dump_core_and_abort(int target_sig)
     gdb_signalled(env, target_sig);
 
 #ifdef ASAN_GIOVESE
-    asan_giovese_deadly_signal(host_sig, GET_PC(env), GET_PC(env), GET_BP(env), GET_SP(env));
+    asan_giovese_deadly_signal(host_sig, PC_GET(env), PC_GET(env), BP_GET(env), SP_GET(env));
 #endif
 
     /* dump core if supported by target binary format */

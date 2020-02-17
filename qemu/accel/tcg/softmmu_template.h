@@ -118,7 +118,7 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr,
     unsigned a_bits = get_alignment_bits(get_memop(oi));
     uintptr_t haddr;
     DATA_TYPE res;
-
+    
     if (addr & ((1 << a_bits) - 1)) {
         cpu_unaligned_access(ENV_GET_CPU(env), addr, READ_ACCESS_TYPE,
                              mmu_idx, retaddr);
@@ -168,6 +168,7 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr,
     }
 
     haddr = addr + entry->addend;
+    
 #if DATA_SIZE == 1
     res = glue(glue(ld, LSUFFIX), _p)((uint8_t *)haddr);
 #else

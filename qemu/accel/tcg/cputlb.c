@@ -687,7 +687,7 @@ static uint64_t io_readx(CPUArchState *env, CPUIOTLBEntry *iotlbentry,
     uint64_t val;
     bool locked = false;
     MemTxResult r;
-
+    
     if (recheck) {
         /*
          * This is a TLB_RECHECK access, where the MMU protection
@@ -809,7 +809,7 @@ static void io_writex(CPUArchState *env, CPUIOTLBEntry *iotlbentry,
 
 /* Return true if ADDR is present in the victim tlb, and has been copied
    back to the main tlb.  */
-static bool victim_tlb_hit(CPUArchState *env, size_t mmu_idx, size_t index,
+bool victim_tlb_hit(CPUArchState *env, size_t mmu_idx, size_t index,
                            size_t elt_ofs, target_ulong page)
 {
     size_t vidx;
