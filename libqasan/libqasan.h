@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define _GNU_SOURCE
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -45,15 +46,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if __x86_64__ || __i386__
 
 // The backdoor is more performant than the fake syscall
-void* __qasan_backdoor(int, void*, void*, void*);
+uintptr_t __qasan_backdoor(int, uintptr_t, uintptr_t, uintptr_t);
 #define QASAN_CALL0(action) \
-  ((size_t)__qasan_backdoor(action, NULL, NULL, NULL))
+  ((size_t)__qasan_backdoor(action, 0, 0, 0))
 #define QASAN_CALL1(action, arg1) \
-  ((size_t)__qasan_backdoor(action, (void*)(arg1), NULL, NULL))
+  ((size_t)__qasan_backdoor(action, (uintptr_t)(arg1), 0, 0))
 #define QASAN_CALL2(action, arg1, arg2) \
-  ((size_t)__qasan_backdoor(action, (void*)(arg1), (void*)(arg2), NULL))
+  ((size_t)__qasan_backdoor(action, (uintptr_t)(arg1), (uintptr_t)(arg2), 0))
 #define QASAN_CALL3(action, arg1, arg2, arg3) \
-  ((size_t)__qasan_backdoor(action, (void*)(arg1), (void*)(arg2), (void*)(arg3)))
+  ((size_t)__qasan_backdoor(action, (uintptr_t)(arg1), (uintptr_t)(arg2), (uintptr_t)(arg3)))
 
 #else
 

@@ -932,7 +932,7 @@ int __sprintf_chk(char* buffer, int flags, size_t buflen, const char* format, ..
   va_end(va);
   return ret;
 }
-int ___sprintf_chk(char* buffer, int flags, const char* format, ...) __attribute__((alias("__sprintf_chk")));
+int ___sprintf_chk(char* buffer, int flags, size_t buflen, const char* format, ...) __attribute__((alias("__sprintf_chk")));
 
 int __snprintf_chk(char* buffer, size_t count, int flag, size_t buflen, const char* format, ...)
 {
