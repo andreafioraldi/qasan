@@ -206,11 +206,23 @@ __thread struct shadow_stack qasan_shadow_stack;
 #include "../../asan-giovese/interval-tree/rbtree.c"
 #include "../../asan-giovese/asan-giovese-inl.h"
 
+#include <sys/types.h>
+#include <sys/syscall.h>
+
 void asan_giovese_populate_context(struct call_context* ctx, TARGET_ULONG pc) {
 
   ctx->size = MIN(qasan_shadow_stack.size, MAX_ASAN_CALL_STACK -1) +1;
   ctx->addresses = calloc(sizeof(void*), ctx->size);
-  ctx->tid = 0; // TODO
+  
+#ifdef __NR_gettid
+  ctx->tid = (uint32_t)syscall(__NR_gettid);
+#else
+  pthread_id_np_t tid;
+  pthread_t self = pthread_self();
+  pthread_getunique_np(&self, &tid);
+  ctx->tid = (uint32_t)tid;
+#endif
+
   ctx->addresses[0] = pc;
   
   if (qasan_shadow_stack.size == 0) return;
