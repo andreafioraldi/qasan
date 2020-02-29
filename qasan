@@ -35,13 +35,17 @@ Copyright (C) 2019 Andrea Fioraldi <andreafioraldi@gmail.com>
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 opt = argparse.ArgumentParser(description=DESCR, formatter_class=argparse.RawTextHelpFormatter)
-opt.add_argument("--verbose", help="Verbose debug log", action='store_true')
+opt.add_argument("--verbose", help="Verbose log", action='store_true')
+opt.add_argument("--debug", help="Verbose debug log", action='store_true')
 opt.add_argument('target', nargs=argparse.REMAINDER, help="Target program (and arguments)")
 
 args = opt.parse_args()
 
 env = os.environ.copy()
 if args.verbose:
+    env["QASAN_LOG"] = "1"
+if args.debug:
+    env["QASAN_LOG"] = "1"
     env["QASAN_DEBUG"] = "1"
 
 argv = [

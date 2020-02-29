@@ -209,7 +209,7 @@ __thread struct shadow_stack qasan_shadow_stack;
 #include <sys/types.h>
 #include <sys/syscall.h>
 
-void asan_giovese_populate_context(struct call_context* ctx, TARGET_ULONG pc) {
+void asan_giovese_populate_context(struct call_context* ctx, target_ulong pc) {
 
   ctx->size = MIN(qasan_shadow_stack.size, MAX_ASAN_CALL_STACK -1) +1;
   ctx->addresses = calloc(sizeof(void*), ctx->size);
@@ -242,7 +242,6 @@ void asan_giovese_populate_context(struct call_context* ctx, TARGET_ULONG pc) {
 }
 
 #ifdef CONFIG_USER_ONLY
-#include "../../asan-giovese/pmparser.h"
 
 static void addr2line_cmd(char* lib, uintptr_t off, char** function, char** line) {
   
@@ -301,59 +300,97 @@ addr2line_cmd_skip:
 
 char* asan_giovese_printaddr(target_ulong guest_addr) {
 
-  procmaps_iterator* maps = pmparser_parse(-1);
-  procmaps_struct*   maps_tmp = NULL;
+  FILE *fp;
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
 
-  uintptr_t a = (uintptr_t)g2h(guest_addr);
+  fp = fopen("/proc/self/maps", "r");
+  if (fp == NULL)
+      return NULL;
+  
+  uint64_t img_min = 0, img_max = 0;
+  char img_path[512] = {0};
 
-  while ((maps_tmp = pmparser_next(maps)) != NULL) {
+  while ((read = getline(&line, &len, fp)) != -1) {
+  
+    int fields, dev_maj, dev_min, inode;
+    uint64_t min, max, offset;
+    char flag_r, flag_w, flag_x, flag_p;
+    char path[512] = "";
+    fields = sscanf(line, "%"PRIx64"-%"PRIx64" %c%c%c%c %"PRIx64" %x:%x %d"
+                    " %512s", &min, &max, &flag_r, &flag_w, &flag_x,
+                    &flag_p, &offset, &dev_maj, &dev_min, &inode, path);
 
-    if (a >= (uintptr_t)maps_tmp->addr_start &&
-        a < (uintptr_t)maps_tmp->addr_end) {
+    if ((fields < 10) || (fields > 11))
+        continue;
 
-      char* s;
-      char * function;
-      char * line;
-      addr2line_cmd(maps_tmp->pathname, a - (uintptr_t)maps_tmp->addr_start,
-                    &function, &line);
+    if (h2g_valid(min)) {
 
-      if (function) {
+      int flags = page_get_flags(h2g(min));
+      max = h2g_valid(max - 1) ? max : (uintptr_t)g2h(GUEST_ADDR_MAX) + 1;
+      if (page_check_range(h2g(min), max - min, flags) == -1)
+          continue;
       
-        if (line) {
-        
-          size_t l = strlen(function) + strlen(line) + 32;
-          s = malloc(l);
-          snprintf(s, l, " in %s %s", function, line);
-          free(line);
-          
-        } else {
-
-          size_t l = strlen(function) + strlen(maps_tmp->pathname) + 32;
-          s = malloc(l);
-          snprintf(s, l, " in %s (%s+0x%lx)", function, maps_tmp->pathname,
-                   a - (uintptr_t)maps_tmp->addr_start);
-          
-        }
-        
-        free(function);
-      
+      if (img_min && !strcmp(img_path, path)) {
+        img_max = max;
       } else {
-
-        size_t l = strlen(maps_tmp->pathname) + 32;
-        s = malloc(l);
-        snprintf(s, l, " (%s+0x%lx)", maps_tmp->pathname,
-                 a - (uintptr_t)maps_tmp->addr_start);
-
+        img_min = min;
+        img_max = max;
+        strncpy(img_path, path, 512);
       }
 
-      pmparser_free(maps);
-      return s;
+      if (guest_addr >= h2g(min) && guest_addr < h2g(max - 1) + 1) {
+      
+        uintptr_t off = guest_addr - h2g(img_min);
+
+        char* s;
+        char * function = NULL;
+        char * codeline = NULL;
+        if (strlen(path))
+          addr2line_cmd(path, off, &function, &codeline);
+
+        if (function) {
+        
+          if (codeline) {
+          
+            size_t l = strlen(function) + strlen(codeline) + 32;
+            s = malloc(l);
+            snprintf(s, l, " in %s %s", function, codeline);
+            free(codeline);
+            
+          } else {
+
+            size_t l = strlen(function) + strlen(path) + 32;
+            s = malloc(l);
+            snprintf(s, l, " in %s (%s+0x%lx)", function, path,
+                     off);
+
+          }
+          
+          free(function);
+        
+        } else {
+
+          size_t l = strlen(path) + 32;
+          s = malloc(l);
+          snprintf(s, l, " (%s+0x%lx)", path, off);
+
+        }
+
+        free(line);
+        fclose(fp);
+        return s;
+        
+      }
 
     }
 
   }
 
-  pmparser_free(maps);
+  free(line);
+  fclose(fp);
+
   return NULL;
 
 }
@@ -515,7 +552,7 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         }
 
         default:
-        QASAN_LOG("Invalid QASAN action %d\n", action);
+        fprintf(stderr, "Invalid QASAN action %ld\n", action);
         abort();
     }
 

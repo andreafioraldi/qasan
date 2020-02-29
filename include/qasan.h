@@ -32,14 +32,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define QASAN_VERSTR "0.1"
 
 #ifdef DEBUG
-#define QASAN_LOG(msg...) do { \
+#define QASAN_DEBUG(msg...) do { \
   if (__qasan_debug) { \
     fprintf(stderr, "==%d== ", getpid()); \
     fprintf(stderr, msg); \
   } \
 } while (0)
 #else
-#define QASAN_LOG(msg...) do {} while (0)
+#define QASAN_DEBUG(msg...) do {} while (0)
 #endif
 
 #define QASAN_FAKEINSTR_X86 { 0x0f, 0x3a, 0xf2 }
