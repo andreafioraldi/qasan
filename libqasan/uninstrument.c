@@ -57,6 +57,8 @@ rettype name (MAP_LIST(GET_FNDECL, __VA_ARGS__)) { \
  \
 }
 
+HOOK_UNINSTRUMENT(char*, getenv, (const char *, name))
+
 /*
 HOOK_UNINSTRUMENT(char*, setlocale, (int, category), (const char *, locale))
 HOOK_UNINSTRUMENT(int, setenv, (const char *, name), (const char *, value), (int, overwrite))

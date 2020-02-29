@@ -197,6 +197,20 @@ void *memcpy(void *dest, const void *src, size_t n) {
 
 }
 
+void *mempcpy(void *dest, const void *src, size_t n) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_DEBUG("%14p: mempcpy(%p, %p, %ld)\n", rtv, dest, src, n);
+  QASAN_LOAD(src, n);
+  QASAN_STORE(dest, n);
+  void * r = (uint8_t*)__libqasan_memcpy(dest, src, n) + n;
+  QASAN_DEBUG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
 void *memmove(void *dest, const void *src, size_t n) {
 
   void * rtv = __builtin_return_address(0);

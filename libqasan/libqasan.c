@@ -89,7 +89,7 @@ int __libc_start_main(
     typeof(&__libc_start_main) orig = dlsym(RTLD_NEXT, "__libc_start_main");
 
     __libqasan_init();
-    __libqasan_hotpatch();
+    if (getenv("AFL_INST_LIBS")) __libqasan_hotpatch();
 
     return orig(main, argc, argv, init, fini, rtld_fini, stack_end);
 }

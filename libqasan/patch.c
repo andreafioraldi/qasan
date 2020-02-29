@@ -174,10 +174,19 @@ void __libqasan_hotpatch(void) {
   void* libc = dlopen("libc.so.6", RTLD_LAZY);
   
 #define HOTPATCH(fn) \
-  void* p_## fn = dlsym(libc, # fn); \
+  uint8_t* p_## fn = (uint8_t*)dlsym(libc, # fn); \
   if (p_## fn) __libqasan_patch_jump(p_## fn, (uint8_t*)&(fn)); \
   
   HOTPATCH(memcmp)
+  HOTPATCH(memmove)
+  
+  uint8_t* p_memcpy = (uint8_t*)dlsym(libc, "memcpy");
+  // fuck you libc
+  if (p_memcpy && p_memmove != p_memcpy)
+    __libqasan_patch_jump(p_memcpy, (uint8_t*)&memcpy);
+  
+  HOTPATCH(mempcpy)
+  
   HOTPATCH(memchr)
   HOTPATCH(memrchr)
   HOTPATCH(memmem)
@@ -200,10 +209,10 @@ void __libqasan_hotpatch(void) {
   HOTPATCH(strnlen)
   HOTPATCH(strstr)
   HOTPATCH(strcasestr)
-
+  
 #undef HOTPATCH
 
-  mprotect(libc_start, libc_end - libc_start, libc_perms);
+  // mprotect(libc_start, libc_end - libc_start, libc_perms);
 
 }
 

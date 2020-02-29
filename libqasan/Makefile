@@ -2,7 +2,7 @@ CC := clang-8
 CFLAGS += -Wno-int-to-void-pointer-cast -ggdb
 LDFLAGS += -ldl
 
-SRC := libqasan.c hooks.c malloc.c string.c uninstrument.c printf.c patch.c
+SRC := libqasan.c hooks.c malloc.c string.c uninstrument.c patch.c
 HDR := libqasan.h
 
 all: arch_x86_64
