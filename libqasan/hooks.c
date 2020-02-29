@@ -163,9 +163,15 @@ void free(void * ptr) {
 
 char *fgets(char *s, int size, FILE *stream) {
 
- QASAN_STORE(s, size);
- QASAN_LOAD(stream, sizeof(FILE));
- return __lq_libc_fgets(s, size, stream);
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_DEBUG("%14p: fgets(%p, %d, %p)\n", rtv, s, size, stream);
+  QASAN_STORE(s, size);
+  QASAN_LOAD(stream, sizeof(FILE));
+  char* r = __lq_libc_fgets(s, size, stream);
+  QASAN_DEBUG("\t\t = %p\n", r);
+  
+  return r;
 
 }
 

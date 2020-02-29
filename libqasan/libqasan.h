@@ -49,18 +49,152 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   } \
 } while (0)
 
-#if __x86_64__ || __i386__
+#if __x86_64__
 
 // The backdoor is more performant than the fake syscall
-uintptr_t __qasan_backdoor(int, uintptr_t, uintptr_t, uintptr_t);
 #define QASAN_CALL0(action) \
-  ((size_t)__qasan_backdoor(action, 0, 0, 0))
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)) \
+    : "%rax", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
 #define QASAN_CALL1(action, arg1) \
-  ((size_t)__qasan_backdoor(action, (uintptr_t)(arg1), 0, 0))
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    "movq %2, %%rdi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)) \
+    : "%rax", "%rdi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
 #define QASAN_CALL2(action, arg1, arg2) \
-  ((size_t)__qasan_backdoor(action, (uintptr_t)(arg1), (uintptr_t)(arg2), 0))
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    "movq %2, %%rdi\n" \
+    "movq %3, %%rsi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)) \
+    : "%rax", "%rdi", "%rsi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
 #define QASAN_CALL3(action, arg1, arg2, arg3) \
-  ((size_t)__qasan_backdoor(action, (uintptr_t)(arg1), (uintptr_t)(arg2), (uintptr_t)(arg3)))
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    "movq %2, %%rdi\n" \
+    "movq %3, %%rsi\n" \
+    "movq %4, %%rdx\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)), "g"((uintptr_t)(arg3)) \
+    : "%rax", "%rdi", "%rsi", "%rdx", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#elif __i386__
+
+// The backdoor is more performant than the fake syscall
+#define QASAN_CALL0(action) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)) \
+    : "%eax", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL1(action, arg1) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    "movl %2, %%edi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)) \
+    : "%eax", "%edi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL2(action, arg1, arg2) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    "movl %2, %%edi\n" \
+    "movl %3, %%esi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)) \
+    : "%eax", "%edi", "%esi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL3(action, arg1, arg2, arg3) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    "movl %2, %%edi\n" \
+    "movl %3, %%esi\n" \
+    "movl %4, %%edx\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)), "g"((uintptr_t)(arg3)) \
+    : "%eax", "%edi", "%esi", "%edx", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
 
 #else
 

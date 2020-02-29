@@ -465,20 +465,21 @@ target_long qasan_actions_dispatcher(void *cpu_env,
     switch(action) {
 #ifdef ASAN_GIOVESE
         case QASAN_ACTION_CHECK_LOAD:
-        //fprintf(stderr, "CHECK LOAD: %p [%p] %ld\n", arg1, g2h(arg1), arg2);
+        // fprintf(stderr, "CHECK LOAD: %p [%p] %ld\n", arg1, g2h(arg1), arg2);
         if (asan_giovese_guest_loadN(arg1, arg2)) {
           asan_giovese_report_and_crash(ACCESS_TYPE_LOAD, arg1, arg2, PC_GET(env), BP_GET(env), SP_GET(env));
         }
         break;
         
         case QASAN_ACTION_CHECK_STORE:
+        // fprintf(stderr, "CHECK STORE: %p [%p] %ld\n", arg1, g2h(arg1), arg2);
         if (asan_giovese_guest_storeN(arg1, arg2)) {
           asan_giovese_report_and_crash(ACCESS_TYPE_STORE, arg1, arg2, PC_GET(env), BP_GET(env), SP_GET(env));
         }
         break;
         
         case QASAN_ACTION_POISON:
-        //fprintf(stderr, "POISON: %p [%p] %ld %x\n", arg1, g2h(arg1), arg2, arg3);
+        // fprintf(stderr, "POISON: %p [%p] %ld %x\n", arg1, g2h(arg1), arg2, arg3);
         asan_giovese_poison_guest_region(arg1, arg2, arg3);
         break;
         

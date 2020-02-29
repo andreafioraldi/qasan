@@ -212,7 +212,7 @@ void __libqasan_hotpatch(void) {
   
 #undef HOTPATCH
 
-  // mprotect(libc_start, libc_end - libc_start, libc_perms);
+  mprotect(libc_start, libc_end - libc_start, libc_perms);
 
 }
 
