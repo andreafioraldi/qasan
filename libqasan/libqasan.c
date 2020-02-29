@@ -30,8 +30,6 @@ int __qasan_debug;
 #endif
 int __qasan_log;
 
-// void* __qasan_backdoor(int a, void* b, void* c, void* d) { return NULL; }
-
 void __libqasan_print_maps(void) {
 
   int fd = open("/proc/self/maps", O_RDONLY);
