@@ -37,11 +37,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <inttypes.h>
 #include <dlfcn.h>
 
-#define DEBUG
 #include "qasan.h"
 
 #define QASAN_ENABLED (0)
 #define QASAN_DISABLED (1)
+
+#define QASAN_LOG(msg...) do { \
+  if (__qasan_log) { \
+    fprintf(stderr, "==%d== ", getpid()); \
+    fprintf(stderr, msg); \
+  } \
+} while (0)
 
 #if __x86_64__ || __i386__
 
@@ -97,8 +103,12 @@ uintptr_t __qasan_backdoor(int, uintptr_t, uintptr_t, uintptr_t);
   a; \
 })
 
+extern int __qasan_log;
+
 void __libqasan_init_hooks(void);
 void __libqasan_init_malloc(void);
+
+void __libqasan_hotpatch(void);
 
 size_t __libqasan_malloc_usable_size(void * ptr);
 void*  __libqasan_malloc(size_t size);
@@ -112,6 +122,8 @@ void*  __libqasan_aligned_alloc(size_t align, size_t len);
 void *__libqasan_memcpy(void *dest, const void *src, size_t n);
 void *__libqasan_memmove(void *dest, const void *src, size_t n);
 void *__libqasan_memset(void *s, int c, size_t n);
+void *__libqasan_memchr(const void *s, int c, size_t n);
+void *__libqasan_memrchr(const void *s, int c, size_t n);
 size_t __libqasan_strlen(const char* s);
 size_t __libqasan_strnlen(const char* s, size_t len);
 int __libqasan_strcmp(const char* str1, const char* str2);

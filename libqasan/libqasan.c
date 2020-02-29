@@ -25,7 +25,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libqasan.h"
 
+#ifdef DEBUG
 int __qasan_debug;
+#endif
+int __qasan_log;
 
 // void* __qasan_backdoor(int a, void* b, void* c, void* d) { return NULL; }
 
@@ -55,17 +58,38 @@ void __libqasan_print_maps(void) {
 
 }
 
-__attribute__((constructor)) void __libqasan_init() {
+/*__attribute__((constructor))*/ void __libqasan_init() {
 
   __libqasan_init_hooks();
   
+#ifdef DEBUG
   __qasan_debug = getenv("QASAN_DEBUG") != NULL;
+#endif
+  __qasan_log = getenv("QASAN_LOG") != NULL;
 
   QASAN_LOG("QEMU-AddressSanitizer (v%s)\n", QASAN_VERSTR);
   QASAN_LOG("Copyright (C) 2019-2020 Andrea Fioraldi <andreafioraldi@gmail.com>\n");
   QASAN_LOG("\n");
 
-  if (__qasan_debug)
+  if (__qasan_log)
     __libqasan_print_maps();
 
+}
+
+
+int __libc_start_main(
+    int (*main)(int, char **, char **),
+    int argc,
+    char **argv,
+    int (*init)(int, char **, char **),
+    void (*fini)(void),
+    void (*rtld_fini)(void),
+    void *stack_end) {
+
+    typeof(&__libc_start_main) orig = dlsym(RTLD_NEXT, "__libc_start_main");
+
+    __libqasan_init();
+    __libqasan_hotpatch();
+
+    return orig(main, argc, argv, init, fini, rtld_fini, stack_end);
 }

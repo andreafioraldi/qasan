@@ -304,6 +304,8 @@ char* asan_giovese_printaddr(target_ulong guest_addr) {
   procmaps_iterator* maps = pmparser_parse(-1);
   procmaps_struct*   maps_tmp = NULL;
 
+  // TODO handle libc offsets
+
   uintptr_t a = (uintptr_t)g2h(guest_addr);
 
   while ((maps_tmp = pmparser_next(maps)) != NULL) {

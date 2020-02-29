@@ -1,3 +1,11 @@
+/*
+
+This code is DEPRECATED!
+I'm keeping it here cause maybe the unistrumentation of a function is needed
+for some stranhge reason.
+
+*/
+
 /*******************************************************************************
 Copyright (c) 2019-2020, Andrea Fioraldi
 
@@ -49,6 +57,7 @@ rettype name (MAP_LIST(GET_FNDECL, __VA_ARGS__)) { \
  \
 }
 
+/*
 HOOK_UNINSTRUMENT(char*, setlocale, (int, category), (const char *, locale))
 HOOK_UNINSTRUMENT(int, setenv, (const char *, name), (const char *, value), (int, overwrite))
 HOOK_UNINSTRUMENT(char*, getenv, (const char *, name))
@@ -66,3 +75,4 @@ HOOK_UNINSTRUMENT(struct passwd *, getpwnam, (const char *, name))
 HOOK_UNINSTRUMENT(struct passwd *, getpwuid, (uid_t, uid))
 HOOK_UNINSTRUMENT(int, getpwnam_r, (const char *, name), (struct passwd *, pwd), (char *, buf), (size_t, buflen), (struct passwd **, result))
 HOOK_UNINSTRUMENT(int, getpwuid_r, (uid_t, uid), (struct passwd *, pwd), (char *, buf), (size_t, buflen), (struct passwd **, result))
+*/

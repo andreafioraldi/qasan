@@ -71,6 +71,28 @@ void *__libqasan_memset(void *s, int c, size_t n) {
 
 }
 
+void *__libqasan_memchr(const void *s, int c, size_t n) {
+
+  unsigned char* m = (unsigned char*)s;
+  size_t i;
+  for (i = 0; i < n; ++i)
+    if(m[i] == (unsigned char)c)
+      return &m[i];
+  return NULL;
+
+}
+
+void *__libqasan_memrchr(const void *s, int c, size_t n) {
+
+  unsigned char* m = (unsigned char*)s;
+  long i;
+  for (i = n; i >= 0; --i)
+    if(m[i] == (unsigned char)c)
+      return &m[i];
+  return NULL;
+
+}
+
 size_t __libqasan_strlen(const char* s) {
 
   const char* i = s;
