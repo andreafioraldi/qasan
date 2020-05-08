@@ -238,6 +238,9 @@ else:
     
     assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
     
+    if os.path.exists(os.path.join(dir_path, "qasan-system")):
+        os.unlink(os.path.join(dir_path, "qasan-system"))
+    
     os.symlink(
       os.path.join(dir_path, "qemu", arch + "-softmmu", "qemu-system-" + arch),
       os.path.join(dir_path, "qasan-system")
