@@ -26,21 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __QASAN_H__
 #define __QASAN_H__
 
-#include <stdio.h>
-#include <unistd.h>
-
 #define QASAN_VERSTR "0.1"
-
-#ifdef DEBUG
-#define QASAN_DEBUG(msg...) do { \
-  if (__qasan_debug) { \
-    fprintf(stderr, "==%d== ", getpid()); \
-    fprintf(stderr, msg); \
-  } \
-} while (0)
-#else
-#define QASAN_DEBUG(msg...) do {} while (0)
-#endif
 
 #define QASAN_FAKEINSTR_X86 { 0x0f, 0x3a, 0xf2 }
 
@@ -58,8 +44,6 @@ enum {
   QASAN_ACTION_DISABLE,
   QASAN_ACTION_SWAP_STATE,
 };
-
-extern int __qasan_debug;
 
 /* shadow map byte values */
 #define ASAN_VALID 0x00
@@ -83,5 +67,191 @@ extern int __qasan_debug;
 #define ASAN_HEAP_LEFT_RZ 0xfa
 #define ASAN_HEAP_RIGHT_RZ 0xfb
 #define ASAN_HEAP_FREED 0xfd
+
+#define QASAN_ENABLED (0)
+#define QASAN_DISABLED (1)
+
+#if __x86_64__
+
+// The backdoor is more performant than the fake syscall
+#define QASAN_CALL0(action) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)) \
+    : "%rax", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL1(action, arg1) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    "movq %2, %%rdi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)) \
+    : "%rax", "%rdi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL2(action, arg1, arg2) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    "movq %2, %%rdi\n" \
+    "movq %3, %%rsi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)) \
+    : "%rax", "%rdi", "%rsi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL3(action, arg1, arg2, arg3) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movq %1, %%rax\n" \
+    "movq %2, %%rdi\n" \
+    "movq %3, %%rsi\n" \
+    "movq %4, %%rdx\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movq %%rax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)), "g"((uintptr_t)(arg3)) \
+    : "%rax", "%rdi", "%rsi", "%rdx", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#elif __i386__
+
+// The backdoor is more performant than the fake syscall
+#define QASAN_CALL0(action) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)) \
+    : "%eax", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL1(action, arg1) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    "movl %2, %%edi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)) \
+    : "%eax", "%edi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL2(action, arg1, arg2) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    "movl %2, %%edi\n" \
+    "movl %3, %%esi\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)) \
+    : "%eax", "%edi", "%esi", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#define QASAN_CALL3(action, arg1, arg2, arg3) \
+({ \
+  uintptr_t __libqasan__ret__; \
+  asm volatile ( \
+    "movl %1, %%eax\n" \
+    "movl %2, %%edi\n" \
+    "movl %3, %%esi\n" \
+    "movl %4, %%edx\n" \
+    ".byte 0x0f\n" \
+    ".byte 0x3a\n" \
+    ".byte 0xf2\n" \
+    "movl %%eax, %0\n" \
+    : "=g"(__libqasan__ret__) \
+    : "g"((uintptr_t)(action)), "g"((uintptr_t)(arg1)), "g"((uintptr_t)(arg2)), "g"((uintptr_t)(arg3)) \
+    : "%eax", "%edi", "%esi", "%edx", "memory" \
+  ); \
+  __libqasan__ret__; \
+})
+
+#else
+
+// fake syscall, works only for QASan user-mode!!!
+
+#include <unistd.h>
+
+#define QASAN_CALL0(action) \
+  syscall(QASAN_FAKESYS_NR, action, NULL, NULL, NULL)
+#define QASAN_CALL1(action, arg1) \
+  syscall(QASAN_FAKESYS_NR, action, arg1, NULL, NULL)
+#define QASAN_CALL2(action, arg1, arg2) \
+  syscall(QASAN_FAKESYS_NR, action, arg1, arg2, NULL)
+#define QASAN_CALL3(action, arg1, arg2, arg3) \
+  syscall(QASAN_FAKESYS_NR, action, arg1, arg2, arg3)
+
+#endif
+
+#define QASAN_LOAD(ptr, len) \
+  QASAN_CALL2(QASAN_ACTION_CHECK_LOAD, ptr, len)
+#define QASAN_STORE(ptr, len) \
+  QASAN_CALL2(QASAN_ACTION_CHECK_STORE, ptr, len)
+
+#define QASAN_POISON(ptr, len, poison_byte) \
+  QASAN_CALL3(QASAN_ACTION_POISON, ptr, len, poison_byte)
+#define QASAN_USER_POISON(ptr, len) \
+  QASAN_CALL3(QASAN_ACTION_POISON, ptr, len, ASAN_USER)
+#define QASAN_UNPOISON(ptr, len) \
+  QASAN_CALL2(QASAN_ACTION_UNPOISON, ptr, len)
+
+#define QASAN_ALLOC(start, end) \
+  QASAN_CALL2(QASAN_ACTION_ALLOC, start, end)
+#define QASAN_DEALLOC(ptr) \
+  QASAN_CALL1(QASAN_ACTION_DEALLOC, ptr)
+
+#define QASAN_SWAP(state) \
+  QASAN_CALL1(QASAN_ACTION_SWAP_STATE, state)
 
 #endif
