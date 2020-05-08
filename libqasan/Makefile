@@ -8,3 +8,6 @@ HDR := libqasan.h
 all: $(HDR) $(SRC)
 	$(CC) $(CFLAGS) -fPIC -shared -I ../include $(SRC) -o libqasan.so $(LDFLAGS)
 
+debug: $(HDR) $(SRC)
+	$(CC) $(CFLAGS) -DDEBUG=1 -fPIC -shared -I ../include $(SRC) -o libqasan.so $(LDFLAGS)
+

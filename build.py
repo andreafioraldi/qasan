@@ -164,7 +164,7 @@ else:
         exit(1)
     
     print("")
-    print("WARNING: QASan with asan-giovese is an higly experimental feature!")
+    print("WARNING: QASan with asan-giovese is an experimental feature!")
     print("")
     
     extra_ld_flags = ""
@@ -218,12 +218,8 @@ if not args.system:
     if arch == "i386":
         libqasan_cflags = "-m32"
 
-    libqasan_target = "arch_other"
-    if arch in ("i386", "x86_64"):
-        libqasan_target = "arch_%s" % arch
-
-    assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s' %s"""
-      % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags, libqasan_target)) == 0 )
+    assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s'"""
+      % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags)) == 0 )
 
     shutil.copy2(
       os.path.join(dir_path, "libqasan", "libqasan.so"),
