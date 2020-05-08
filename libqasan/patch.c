@@ -123,35 +123,51 @@ void __libqasan_hotpatch(void) {}
 
 #else
 
-#include "pmparser.h"
-
 static void* libc_start, *libc_end;
 int libc_perms;
 
 static void find_libc(void) {
 
-  procmaps_iterator* maps = pmparser_parse(-1);
-  procmaps_struct*   maps_tmp = NULL;
+  FILE *fp;
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
 
-  while ((maps_tmp = pmparser_next(maps)) != NULL) {
+  fp = fopen("/proc/self/maps", "r");
+  if (fp == NULL)
+      return;
   
-    if (maps_tmp->is_x && (__libqasan_strstr(maps_tmp->pathname, "/libc.so") ||
-        __libqasan_strstr(maps_tmp->pathname, "/libc-"))) {
+  while ((read = getline(&line, &len, fp)) != -1) {
+  
+    int fields, dev_maj, dev_min, inode;
+    uint64_t min, max, offset;
+    char flag_r, flag_w, flag_x, flag_p;
+    char path[512] = "";
+    fields = sscanf(line, "%"PRIx64"-%"PRIx64" %c%c%c%c %"PRIx64" %x:%x %d"
+                    " %512s", &min, &max, &flag_r, &flag_w, &flag_x,
+                    &flag_p, &offset, &dev_maj, &dev_min, &inode, path);
+
+    if ((fields < 10) || (fields > 11))
+        continue;
     
-      libc_start = maps_tmp->addr_start;
-      libc_end = maps_tmp->addr_end;
+    if (flag_x == 'x' && (__libqasan_strstr(path, "/libc.so") ||
+        __libqasan_strstr(path, "/libc-"))) {
+    
+      libc_start = (void*)min;
+      libc_end = (void*)max;
       
       libc_perms = PROT_EXEC;
-      if (maps_tmp->is_w) libc_perms |= PROT_WRITE;
-      if (maps_tmp->is_r) libc_perms |= PROT_READ;
+      if (flag_w == 'w') libc_perms |= PROT_WRITE;
+      if (flag_r == 'r') libc_perms |= PROT_READ;
       
       break;
 
     }
 
   }
-
-  pmparser_free(maps);
+  
+  free(line);
+  fclose(fp);
   
 }
 
