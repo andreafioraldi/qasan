@@ -47,8 +47,6 @@ typedef struct {
 
 #define ALLOC_ALIGN_SIZE (_Alignof(max_align_t))
 
-// TODO quarantine
-
 struct chunk_begin {
 
   size_t requested_size;
