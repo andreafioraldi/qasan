@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stddef.h>
 #include <assert.h>
 
-#define REDZONE_SIZE 32
+#define REDZONE_SIZE 128
 
 #if __STDC_VERSION__ < 201112L || \
     (defined(__FreeBSD__) && __FreeBSD_version < 1200000)
