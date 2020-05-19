@@ -249,8 +249,9 @@ void *memchr(const void *s, int c, size_t n) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: memchr(%p, %d, %ld)\n", rtv, s, c, n);
-  QASAN_STORE(s, n);
   void * r = __libqasan_memchr(s, c, n);
+  if (r == NULL) QASAN_LOAD(s, n);
+  else QASAN_LOAD(s, r - s);
   QASAN_DEBUG("\t\t = %p\n", r);
   
   return r;
@@ -262,7 +263,7 @@ void *memrchr(const void *s, int c, size_t n) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: memrchr(%p, %d, %ld)\n", rtv, s, c, n);
-  QASAN_STORE(s, n);
+  QASAN_LOAD(s, n);
   void * r = __libqasan_memrchr(s, c, n);
   QASAN_DEBUG("\t\t = %p\n", r);
   

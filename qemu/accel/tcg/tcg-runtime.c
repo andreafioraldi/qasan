@@ -195,7 +195,7 @@ __thread CPUState* qasan_cpu;
 int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
 
 int __qasan_debug;
-int qasan_disabled;
+__thread int qasan_disabled;
 
 #define MAX_ASAN_CALL_STACK 16
 
