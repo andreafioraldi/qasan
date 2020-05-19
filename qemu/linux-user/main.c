@@ -602,6 +602,11 @@ int main(int argc, char **argv, char **envp)
     int ret;
     int execfd;
 
+    if (getenv("QASAN_MAX_CALL_STACK"))
+      qasan_max_call_stack = atoi(getenv("QASAN_MAX_CALL_STACK"));
+    if (getenv("QASAN_SYMBOLIZE"))
+      qasan_symbolize = atoi(getenv("QASAN_SYMBOLIZE"));
+
 #ifdef ASAN_GIOVESE
     asan_giovese_init();
 #endif

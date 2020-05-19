@@ -9,7 +9,9 @@
 #include "../../include/qasan.h"
 #include "tcg.h"
 
-#define HEAP_PAD 16
+// options
+extern int qasan_max_call_stack; // QASAN_MAX_CALL_STACK
+extern int qasan_symbolize; // QASAN_SYMBOLIZE
 
 #define SHADOW_BK_SIZE (4096*8)
 

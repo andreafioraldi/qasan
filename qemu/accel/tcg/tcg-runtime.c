@@ -174,6 +174,10 @@ void HELPER(exit_atomic)(CPUArchState *env)
 
 #include "qasan-qemu.h"
 
+// options
+int qasan_max_call_stack = 16; // QASAN_MAX_CALL_STACK
+int qasan_symbolize = 1; // QASAN_SYMBOLIZE
+
 #ifndef CONFIG_USER_ONLY
 
 __thread CPUState* qasan_cpu;
@@ -197,8 +201,6 @@ int qasan_addr_to_host(CPUState* cpu, target_ulong addr, void** host_addr);
 int __qasan_debug;
 __thread int qasan_disabled;
 
-#define MAX_ASAN_CALL_STACK 16
-
 __thread struct shadow_stack qasan_shadow_stack;
 
 #ifdef ASAN_GIOVESE
@@ -211,7 +213,7 @@ __thread struct shadow_stack qasan_shadow_stack;
 
 void asan_giovese_populate_context(struct call_context* ctx, target_ulong pc) {
 
-  ctx->size = MIN(qasan_shadow_stack.size, MAX_ASAN_CALL_STACK -1) +1;
+  ctx->size = MIN(qasan_shadow_stack.size, qasan_max_call_stack -1) +1;
   ctx->addresses = calloc(sizeof(void*), ctx->size);
   
 #ifdef __NR_gettid
@@ -228,11 +230,11 @@ void asan_giovese_populate_context(struct call_context* ctx, target_ulong pc) {
   if (qasan_shadow_stack.size == 0) return;
   
   int i, j = 1;
-  for (i = qasan_shadow_stack.first->index -1; i >= 0 && j < MAX_ASAN_CALL_STACK; --i)
+  for (i = qasan_shadow_stack.first->index -1; i >= 0 && j < qasan_max_call_stack; --i)
     ctx->addresses[j++] = qasan_shadow_stack.first->buf[i];
 
   struct shadow_stack_block* b = qasan_shadow_stack.first->next;
-  while (b && j < MAX_ASAN_CALL_STACK) {
+  while (b && j < qasan_max_call_stack) {
   
     for (i = SHADOW_BK_SIZE-1; i >= 0; --i)
       ctx->addresses[j++] = b->buf[i];
@@ -245,7 +247,7 @@ void asan_giovese_populate_context(struct call_context* ctx, target_ulong pc) {
 
 static void addr2line_cmd(char* lib, uintptr_t off, char** function, char** line) {
   
-  if (getenv("QASAN_DONT_SYMBOLIZE")) goto addr2line_cmd_skip;
+  if (!qasan_symbolize) goto addr2line_cmd_skip;
   
   FILE *fp;
 

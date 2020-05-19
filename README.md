@@ -80,6 +80,8 @@ To fuzz a binary with QASan and AFL++ use a command similar to the following:
 
 It supports all the AFL++ QEMU configurations, `AFL_COMPCOV_LEVEL=2` is higly suggested.
 
+To improve speed, set the env variables `QASAN_MAX_CALL_STACK=0` and `QASAN_SYMBOLIZE=0`.
+
 ## FAQ
 
 > When I should use QASan?
