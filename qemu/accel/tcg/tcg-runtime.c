@@ -289,7 +289,7 @@ static void addr2line_cmd(char* lib, uintptr_t off, char** function, char** line
       (*line)[l-1] = 0;
       
   }
-
+  
   pclose(fp);
   
   return;
@@ -345,12 +345,15 @@ char* asan_giovese_printaddr(target_ulong guest_addr) {
       if (guest_addr >= h2g(min) && guest_addr < h2g(max - 1) + 1) {
       
         uintptr_t off = guest_addr - h2g(img_min);
-
+      
         char* s;
         char * function = NULL;
         char * codeline = NULL;
-        if (strlen(path))
+        if (strlen(path)) {
           addr2line_cmd(path, off, &function, &codeline);
+          if (!function)
+            addr2line_cmd(path, guest_addr, &function, &codeline);
+        }
 
         if (function) {
         

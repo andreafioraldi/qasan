@@ -201,13 +201,17 @@ if not args.system:
         print("If you haven't did it yet, on Ubuntu 18.04 it is PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig")
         print("")
 
-    assert ( os.system("""cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
+    cmd = """cd '%s' ; ./configure --target-list="%s-linux-user" --disable-system --enable-pie \
       --cc="%s" --cxx="%s" %s --extra-cflags="-O3 -ggdb %s" --extra-ldflags="%s" \
-      --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-strip"""
+      --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --disable-strip""" \
       % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx, cpu_qemu_flag,
-         extra_c_flags, extra_ld_flags)) == 0 )
+   extra_c_flags, extra_ld_flags)
+    print (cmd)
+    assert (os.system(cmd) == 0)
 
-    assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
+    cmd = """cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))
+    print (cmd)
+    assert (os.system(cmd) == 0)
 
     shutil.copy2(
       os.path.join(dir_path, "qemu", arch + "-linux-user", "qemu-" + arch),
@@ -230,13 +234,17 @@ if not args.system:
     print("Test it with ./qasan /bin/ls")
     print("")
 else:
-    assert ( os.system("""cd '%s' ; ./configure --target-list="%s-softmmu" --enable-pie \
+    cmd = """cd '%s' ; ./configure --target-list="%s-softmmu" --enable-pie \
       --cc="%s" --cxx="%s" --extra-cflags="-O3 -ggdb %s" --extra-ldflags="%s" \
-      --disable-linux-user --disable-sdl --disable-vnc --disable-strip"""
+      --disable-linux-user --disable-sdl --disable-vnc --disable-strip""" \
       % (os.path.join(dir_path, "qemu"), arch, args.cc, args.cxx,
-         extra_c_flags, extra_ld_flags)) == 0 )
+         extra_c_flags, extra_ld_flags)
+    print (cmd)
+    assert (os.system(cmd) == 0)
     
-    assert ( os.system("""cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))) == 0 )
+    cmd = """cd '%s' ; make -j `nproc`""" % (os.path.join(dir_path, "qemu"))
+    print (cmd)
+    assert (os.system(cmd) == 0)
     
     if os.path.exists(os.path.join(dir_path, "qasan-system")):
         os.unlink(os.path.join(dir_path, "qasan-system"))
