@@ -2747,6 +2747,7 @@ void tcg_gen_qemu_ld_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
         case MO_32: qasan_gen_load4(addr, idx); break;
         case MO_16: qasan_gen_load2(addr, idx); break;
         case MO_8:  qasan_gen_load1(addr, idx); break;
+        default: qasan_gen_load4(addr, idx); break;
     }
 }
 
@@ -2763,6 +2764,7 @@ void tcg_gen_qemu_st_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
         case MO_32: qasan_gen_store4(addr, idx); break;
         case MO_16: qasan_gen_store2(addr, idx); break;
         case MO_8:  qasan_gen_store1(addr, idx); break;
+        default: qasan_gen_store4(addr, idx); break;
     }
 }
 
@@ -2789,6 +2791,7 @@ void tcg_gen_qemu_ld_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
         case MO_32: qasan_gen_load4(addr, idx); break;
         case MO_16: qasan_gen_load2(addr, idx); break;
         case MO_8:  qasan_gen_load1(addr, idx); break;
+        default: qasan_gen_load8(addr, idx); break;
     }
 }
 
@@ -2810,6 +2813,7 @@ void tcg_gen_qemu_st_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
         case MO_32: qasan_gen_store4(addr, idx); break;
         case MO_16: qasan_gen_store2(addr, idx); break;
         case MO_8:  qasan_gen_store1(addr, idx); break;
+        default: qasan_gen_store8(addr, idx); break;
     }
 }
 
