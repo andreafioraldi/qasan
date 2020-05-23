@@ -157,7 +157,7 @@ if args.asan_dso:
     deintercept(args.asan_dso, output_dso)
 else:
     # if the ASan DSO is not specified, use asan-giovese
-    if arch not in ("x86_64", "i386"):
+    if arch not in ("x86_64", "i386", "arm", "aarch64"):
         print("ERROR: asan-giovese is still not supported for %s." % arch)
         print("Please specify the ASan DSO with --asan-dso")
         print("")

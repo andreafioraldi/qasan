@@ -44,6 +44,18 @@ extern __thread struct shadow_stack qasan_shadow_stack;
 #define BP_GET(env) ((env)->regs[R_EBP])
 #define SP_GET(env) ((env)->regs[R_ESP])
 
+#elif defined(TARGET_ARM) && !defined(TARGET_AARCH64)
+
+#define PC_GET(env) ((env)->pc)
+#define BP_GET(env) ((env)->regs[11])
+#define SP_GET(env) ((env)->regs[13])
+
+#elif defined(TARGET_AARCH64)
+
+#define PC_GET(env) ((env)->pc)
+#define BP_GET(env) ((env)->aarch64 ? (env)->xregs[29] : (env)->regs[11])
+#define SP_GET(env) ((env)->aarch64 ? (env)->xregs[31] : (env)->regs[13])
+
 #else
 #error "Target not supported by asan-giovese"
 #endif
