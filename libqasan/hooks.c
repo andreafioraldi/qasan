@@ -596,3 +596,47 @@ long long atoll(const char *nptr) {
 
 }
 
+size_t wcslen(const wchar_t *s) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_DEBUG("%14p: wcslen(%p)\n", rtv, s);
+  size_t r = __libqasan_wcslen(s);
+  QASAN_LOAD(s, sizeof(wchar_t) * (r+1));
+  QASAN_DEBUG("\t\t = %ld\n", r);
+  
+  return r;
+
+}
+
+wchar_t *wcscpy(wchar_t *dest, const wchar_t *src) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_DEBUG("%14p: wcscpy(%p, %p)\n", rtv, dest, src);
+  size_t l = __libqasan_wcslen(src) +1;
+  QASAN_LOAD(src, l * sizeof(wchar_t));
+  QASAN_STORE(dest, l * sizeof(wchar_t));
+  void * r = __libqasan_wcscpy(dest, src);
+  QASAN_DEBUG("\t\t = %p\n", r);
+  
+  return r;
+
+}
+
+int wcscmp(const wchar_t *s1, const wchar_t *s2) {
+
+  void * rtv = __builtin_return_address(0);
+
+  QASAN_DEBUG("%14p: wcscmp(%p, %p)\n", rtv, s1, s2);
+  size_t l1 = __libqasan_wcslen(s1);
+  QASAN_LOAD(s1, sizeof(wchar_t) * (l1+1));
+  size_t l2 = __libqasan_wcslen(s2);
+  QASAN_LOAD(s2, sizeof(wchar_t) * (l2+1));
+  int r = __libqasan_wcscmp(s1, s2);
+  QASAN_DEBUG("\t\t = %d\n", r);
+  
+  return r;
+
+}
+

@@ -502,6 +502,7 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         return asan_giovese_guest_loadN(arg1, arg2);
         
         case QASAN_ACTION_ALLOC: {
+          //fprintf(stderr, "ALLOC: %p - %p\n", arg1, arg2);
           struct call_context* ctx = calloc(sizeof(struct call_context), 1);
           asan_giovese_populate_context(ctx, PC_GET(env));
           asan_giovese_alloc_insert(arg1, arg2, ctx);
@@ -509,6 +510,7 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         }
         
         case QASAN_ACTION_DEALLOC: {
+          //fprintf(stderr, "DEALLOC: %p\n", arg1);
           struct chunk_info* ckinfo = asan_giovese_alloc_search(arg1);
           if (ckinfo) {
             if (ckinfo->start != arg1)

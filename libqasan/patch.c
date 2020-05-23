@@ -225,6 +225,9 @@ void __libqasan_hotpatch(void) {
   HOTPATCH(strnlen)
   HOTPATCH(strstr)
   HOTPATCH(strcasestr)
+  HOTPATCH(wcslen)
+  HOTPATCH(wcscpy)
+  HOTPATCH(wcscmp)
   
 #undef HOTPATCH
 

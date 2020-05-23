@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ucontext.h>
 #include <inttypes.h>
 #include <dlfcn.h>
+#include <wchar.h>
 
 #include "qasan.h"
 
@@ -103,5 +104,8 @@ char* __libqasan_strcasestr(const char* haystack, const char* needle);
 void* __libqasan_memmem(const void* haystack, size_t haystack_len, const void* needle, size_t needle_len);
 char *__libqasan_strchr(const char *s, int c);
 char *__libqasan_strrchr(const char *s, int c);
+size_t __libqasan_wcslen(const wchar_t *s);
+wchar_t *__libqasan_wcscpy(wchar_t *d, const wchar_t *s);
+int __libqasan_wcscmp(const wchar_t *s1, const wchar_t *s2);
 
 #endif
