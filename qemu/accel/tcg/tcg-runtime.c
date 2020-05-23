@@ -498,6 +498,9 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         asan_giovese_unpoison_guest_region(arg1, arg2);
         break;
         
+        case QASAN_ACTION_IS_POISON:
+        return asan_giovese_guest_loadN(arg1, arg2);
+        
         case QASAN_ACTION_ALLOC: {
           //fprintf(stderr, "ALLOC: %p - %p\n", arg1, arg2);
           struct call_context* ctx = calloc(sizeof(struct call_context), 1);
@@ -535,6 +538,9 @@ target_long qasan_actions_dispatcher(void *cpu_env,
         case QASAN_ACTION_UNPOISON:
         __asan_unpoison_memory_region(g2h(arg1), arg2);
         break;
+        
+        case QASAN_ACTION_IS_POISON:
+        return __asan_region_is_poisoned(g2h(arg1), arg2) != NULL;
         
         case QASAN_ACTION_ALLOC:
           break;
