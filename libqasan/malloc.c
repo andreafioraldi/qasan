@@ -195,9 +195,6 @@ void __libqasan_free(void * ptr) {
   size_t n = p->requested_size;
 
   QASAN_STORE(ptr, n);
-  if (!QASAN_IS_POISON(p->redzone, sizeof(p->redzone)))
-    assert(0 && "Free of an invalid chunk");
-  
   int state = QASAN_SWAP(QASAN_DISABLED); // disable qasan for this thread
 
   if (!quanratine_push(p)) {
