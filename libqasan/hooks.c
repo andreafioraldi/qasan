@@ -559,7 +559,7 @@ int atoi(const char *nptr) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: atoi(%p)\n", rtv, nptr);
-  size_t l = __libqasan_strlen(nptr);
+  size_t l = __libqasan_strlen(nptr) +1;
   QASAN_LOAD(nptr, l);
   int r = __lq_libc_atoi(nptr);
   QASAN_DEBUG("\t\t = %d\n", r);
@@ -573,7 +573,7 @@ long atol(const char *nptr) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: atol(%p)\n", rtv, nptr);
-  size_t l = __libqasan_strlen(nptr);
+  size_t l = __libqasan_strlen(nptr) +1;
   QASAN_LOAD(nptr, l);
   long r = __lq_libc_atol(nptr);
   QASAN_DEBUG("\t\t = %ld\n", r);
@@ -587,7 +587,7 @@ long long atoll(const char *nptr) {
   void * rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: atoll(%p)\n", rtv, nptr);
-  size_t l = __libqasan_strlen(nptr);
+  size_t l = __libqasan_strlen(nptr) +1;
   QASAN_LOAD(nptr, l);
   long long r = __lq_libc_atoll(nptr);
   QASAN_DEBUG("\t\t = %lld\n", r);
