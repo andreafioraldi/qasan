@@ -151,7 +151,7 @@ Bibtex:
 ```
 @INPROCEEDINGS{QASan-SecDev20,
   author={Fioraldi, Andrea and D’Elia, Daniele Cono and Querzoni, Leonardo},
-  booktitle={2020 IEEE Cybersecurity Development (SecDev)}, 
+  booktitle={2020 IEEE Secure Development Conference (SecDev)}, 
   title={Fuzzing Binaries for Memory Safety Errors with {QASan}}, 
   year={2020}
 }
