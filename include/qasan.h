@@ -145,6 +145,8 @@ enum {
   __libqasan__ret__; \
 })
 
+/*
+
 #elif __i386__
 
 // The backdoor is more performant than the fake syscall
@@ -217,6 +219,8 @@ enum {
   ); \
   __libqasan__ret__; \
 })
+
+*/
 
 #else
 
