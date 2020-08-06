@@ -42,12 +42,16 @@ void __libqasan_init_hooks(void) {
 
 }
 
+#ifdef __BIONIC__
+size_t malloc_usable_size (const void * ptr) {
+#else
 size_t malloc_usable_size (void * ptr) {
+#endif
 
   void * rtv = __builtin_return_address(0);
 
   QASAN_DEBUG("%14p: malloc_usable_size(%p)\n", rtv, ptr);
-  size_t r = __libqasan_malloc_usable_size(ptr);
+  size_t r = __libqasan_malloc_usable_size((void*)ptr);
   QASAN_DEBUG("\t\t = %ld\n", r);
 
   return r;
@@ -285,7 +289,11 @@ void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_
 
 }
 
+#ifdef __BIONIC__
 void bzero(void *s, size_t n) {
+#else
+void bzero(void *s, size_t n) {
+#endif
 
   void * rtv = __builtin_return_address(0);
 
