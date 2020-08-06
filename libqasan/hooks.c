@@ -290,7 +290,7 @@ void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_
 }
 
 #ifdef __BIONIC__
-void bzero(void *s, size_t n) {
+void __bionic_bzero(void *s, size_t n) {
 #else
 void bzero(void *s, size_t n) {
 #endif
