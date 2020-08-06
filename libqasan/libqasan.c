@@ -32,25 +32,30 @@ int __qasan_log;
 
 void __libqasan_print_maps(void) {
 
-  int fd = open("/proc/self/maps", O_RDONLY);
+  int  fd = open("/proc/self/maps", O_RDONLY);
   char buf[4096] = {0};
-  
+
   read(fd, buf, 4095);
   close(fd);
 
   size_t len = strlen(buf);
 
   QASAN_LOG("Guest process maps:\n");
-  int i;
-  char * line = NULL;
+  int   i;
+  char *line = NULL;
   for (i = 0; i < len; i++) {
+
     if (!line) line = &buf[i];
     if (buf[i] == '\n') {
+
       buf[i] = 0;
       QASAN_LOG("%s\n", line);
       line = NULL;
+
     }
+
   }
+
   if (line) QASAN_LOG("%s\n", line);
   QASAN_LOG("\n");
 
@@ -59,35 +64,31 @@ void __libqasan_print_maps(void) {
 /*__attribute__((constructor))*/ void __libqasan_init() {
 
   __libqasan_init_hooks();
-  
+
 #ifdef DEBUG
   __qasan_debug = getenv("QASAN_DEBUG") != NULL;
 #endif
   __qasan_log = getenv("QASAN_LOG") != NULL;
 
   QASAN_LOG("QEMU-AddressSanitizer (v%s)\n", QASAN_VERSTR);
-  QASAN_LOG("Copyright (C) 2019-2020 Andrea Fioraldi <andreafioraldi@gmail.com>\n");
+  QASAN_LOG(
+      "Copyright (C) 2019-2020 Andrea Fioraldi <andreafioraldi@gmail.com>\n");
   QASAN_LOG("\n");
 
-  if (__qasan_log)
-    __libqasan_print_maps();
+  if (__qasan_log) __libqasan_print_maps();
 
 }
 
+int __libc_start_main(int (*main)(int, char **, char **), int argc, char **argv,
+                      int (*init)(int, char **, char **), void (*fini)(void),
+                      void (*rtld_fini)(void), void *stack_end) {
 
-int __libc_start_main(
-    int (*main)(int, char **, char **),
-    int argc,
-    char **argv,
-    int (*init)(int, char **, char **),
-    void (*fini)(void),
-    void (*rtld_fini)(void),
-    void *stack_end) {
+  typeof(&__libc_start_main) orig = dlsym(RTLD_NEXT, "__libc_start_main");
 
-    typeof(&__libc_start_main) orig = dlsym(RTLD_NEXT, "__libc_start_main");
+  __libqasan_init();
+  if (getenv("AFL_INST_LIBS")) __libqasan_hotpatch();
 
-    __libqasan_init();
-    if (getenv("AFL_INST_LIBS")) __libqasan_hotpatch();
+  return orig(main, argc, argv, init, fini, rtld_fini, stack_end);
 
-    return orig(main, argc, argv, init, fini, rtld_fini, stack_end);
 }
+

@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "map_macro.h"
 #include <sys/types.h>
 #include <pwd.h>
- 
+
 #define X_GET_FNPAR(type, name) name
 #define GET_FNPAR(x) X_GET_FNPAR x
 #define X_GET_FNTYPE(type, name) type
@@ -43,38 +43,41 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define X_GET_FNDECL(type, name) type name
 #define GET_FNDECL(x) X_GET_FNDECL x
 
-#define HOOK_UNINSTRUMENT(rettype, name, ...) \
-rettype (*__lq_libc_##name)(MAP_LIST(GET_FNTYPE, __VA_ARGS__)); \
-rettype name (MAP_LIST(GET_FNDECL, __VA_ARGS__)) { \
- \
-  if (!(__lq_libc_##name)) \
-    __lq_libc_##name = ASSERT_DLSYM(name); \
-  int state = QASAN_SWAP(QASAN_DISABLED); \
-  rettype r = __lq_libc_##name(MAP_LIST(GET_FNPAR, __VA_ARGS__)); \
-  QASAN_SWAP(state); \
- \
-  return r; \
- \
-}
+#define HOOK_UNINSTRUMENT(rettype, name, ...)                       \
+  rettype (*__lq_libc_##name)(MAP_LIST(GET_FNTYPE, __VA_ARGS__));   \
+  rettype name(MAP_LIST(GET_FNDECL, __VA_ARGS__)) {                 \
+                                                                    \
+    if (!(__lq_libc_##name)) __lq_libc_##name = ASSERT_DLSYM(name); \
+    int     state = QASAN_SWAP(QASAN_DISABLED);                     \
+    rettype r = __lq_libc_##name(MAP_LIST(GET_FNPAR, __VA_ARGS__)); \
+    QASAN_SWAP(state);                                              \
+                                                                    \
+    return r;                                                       \
+                                                                    \
+  }
 
-HOOK_UNINSTRUMENT(char*, getenv, (const char *, name))
+HOOK_UNINSTRUMENT(char *, getenv, (const char *, name))
 
 /*
 HOOK_UNINSTRUMENT(char*, setlocale, (int, category), (const char *, locale))
-HOOK_UNINSTRUMENT(int, setenv, (const char *, name), (const char *, value), (int, overwrite))
-HOOK_UNINSTRUMENT(char*, getenv, (const char *, name))
-HOOK_UNINSTRUMENT(char*, bindtextdomain, (const char *, domainname), (const char *, dirname))
-HOOK_UNINSTRUMENT(char*, bind_textdomain_codeset, (const char *, domainname), (const char *, codeset))
-HOOK_UNINSTRUMENT(char*, gettext, (const char *, msgid))
-HOOK_UNINSTRUMENT(char*, dgettext, (const char *, domainname), (const char *, msgid))
-HOOK_UNINSTRUMENT(char*, dcgettext, (const char *, domainname), (const char *, msgid), (int, category))
-HOOK_UNINSTRUMENT(int, __gen_tempname, (char, *tmpl), (int, suffixlen), (int, flags), (int, kind))
+HOOK_UNINSTRUMENT(int, setenv, (const char *, name), (const char *, value),
+(int, overwrite)) HOOK_UNINSTRUMENT(char*, getenv, (const char *, name))
+HOOK_UNINSTRUMENT(char*, bindtextdomain, (const char *, domainname), (const char
+*, dirname)) HOOK_UNINSTRUMENT(char*, bind_textdomain_codeset, (const char *,
+domainname), (const char *, codeset)) HOOK_UNINSTRUMENT(char*, gettext, (const
+char *, msgid)) HOOK_UNINSTRUMENT(char*, dgettext, (const char *, domainname),
+(const char *, msgid)) HOOK_UNINSTRUMENT(char*, dcgettext, (const char *,
+domainname), (const char *, msgid), (int, category)) HOOK_UNINSTRUMENT(int,
+__gen_tempname, (char, *tmpl), (int, suffixlen), (int, flags), (int, kind))
 HOOK_UNINSTRUMENT(int, mkstemp, (char *, template))
 HOOK_UNINSTRUMENT(int, mkostemp, (char *, template), (int, flags))
 HOOK_UNINSTRUMENT(int, mkstemps, (char *, template), (int, suffixlen))
-HOOK_UNINSTRUMENT(int, mkostemps, (char *, template), (int, suffixlen), (int, flags))
-HOOK_UNINSTRUMENT(struct passwd *, getpwnam, (const char *, name))
+HOOK_UNINSTRUMENT(int, mkostemps, (char *, template), (int, suffixlen), (int,
+flags)) HOOK_UNINSTRUMENT(struct passwd *, getpwnam, (const char *, name))
 HOOK_UNINSTRUMENT(struct passwd *, getpwuid, (uid_t, uid))
-HOOK_UNINSTRUMENT(int, getpwnam_r, (const char *, name), (struct passwd *, pwd), (char *, buf), (size_t, buflen), (struct passwd **, result))
-HOOK_UNINSTRUMENT(int, getpwuid_r, (uid_t, uid), (struct passwd *, pwd), (char *, buf), (size_t, buflen), (struct passwd **, result))
+HOOK_UNINSTRUMENT(int, getpwnam_r, (const char *, name), (struct passwd *, pwd),
+(char *, buf), (size_t, buflen), (struct passwd **, result))
+HOOK_UNINSTRUMENT(int, getpwuid_r, (uid_t, uid), (struct passwd *, pwd), (char
+*, buf), (size_t, buflen), (struct passwd **, result))
 */
+

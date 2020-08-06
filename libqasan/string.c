@@ -26,69 +26,70 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libqasan.h"
 #include <ctype.h>
 
-void *__libqasan_memcpy(void *dest, const void *src, size_t n) {
+void* __libqasan_memcpy(void* dest, const void* src, size_t n) {
 
-  unsigned char* d = dest;
+  unsigned char*       d = dest;
   const unsigned char* s = src;
-  
+
   if (!n) return dest;
-  
+
   while (n--) {
+
     *d = *s;
     ++d;
-    ++s;  
+    ++s;
+
   }
-  
+
   return dest;
 
 }
 
-void *__libqasan_memmove(void *dest, const void *src, size_t n) {
+void* __libqasan_memmove(void* dest, const void* src, size_t n) {
 
-  unsigned char* d = dest;
+  unsigned char*       d = dest;
   const unsigned char* s = src;
-  
+
   if (!n) return dest;
 
-  if (!((d+n) >= s && d <= (s+n))) // do not overlap
+  if (!((d + n) >= s && d <= (s + n)))  // do not overlap
     return __libqasan_memcpy(dest, src, n);
 
   d = __libqasan_malloc(n);
   __libqasan_memcpy(d, src, n);
   __libqasan_memcpy(dest, d, n);
-  
+
   __libqasan_free(d);
-  
+
   return dest;
 
 }
 
-void *__libqasan_memset(void *s, int c, size_t n) {
+void* __libqasan_memset(void* s, int c, size_t n) {
 
   unsigned char* b = s;
-  while(n--) *(b++) = (unsigned char)c;
+  while (n--)
+    *(b++) = (unsigned char)c;
   return s;
 
 }
 
-void *__libqasan_memchr(const void *s, int c, size_t n) {
+void* __libqasan_memchr(const void* s, int c, size_t n) {
 
   unsigned char* m = (unsigned char*)s;
-  size_t i;
+  size_t         i;
   for (i = 0; i < n; ++i)
-    if(m[i] == (unsigned char)c)
-      return &m[i];
+    if (m[i] == (unsigned char)c) return &m[i];
   return NULL;
 
 }
 
-void *__libqasan_memrchr(const void *s, int c, size_t n) {
+void* __libqasan_memrchr(const void* s, int c, size_t n) {
 
   unsigned char* m = (unsigned char*)s;
-  long i;
+  long           i;
   for (i = n; i >= 0; --i)
-    if(m[i] == (unsigned char)c)
-      return &m[i];
+    if (m[i] == (unsigned char)c) return &m[i];
   return NULL;
 
 }
@@ -96,16 +97,18 @@ void *__libqasan_memrchr(const void *s, int c, size_t n) {
 size_t __libqasan_strlen(const char* s) {
 
   const char* i = s;
-  while (*(i++));
-  return i - s -1;
+  while (*(i++))
+    ;
+  return i - s - 1;
 
 }
 
 size_t __libqasan_strnlen(const char* s, size_t len) {
 
   size_t r = 0;
-  while (len-- && *(s++)) ++r;
-  return r;  
+  while (len-- && *(s++))
+    ++r;
+  return r;
 
 }
 
@@ -121,7 +124,7 @@ int __libqasan_strcmp(const char* str1, const char* str2) {
     str2++;
 
   }
-  
+
   return 0;
 
 }
@@ -155,7 +158,7 @@ int __libqasan_strcasecmp(const char* str1, const char* str2) {
     str2++;
 
   }
-  
+
   return 0;
 
 }
@@ -274,62 +277,63 @@ void* __libqasan_memmem(const void* haystack, size_t haystack_len,
 
 }
 
-char *__libqasan_strchr(const char *s, int c) {
+char* __libqasan_strchr(const char* s, int c) {
 
   while (*s != (char)c)
-    if (!*s++)
-      return 0;
-  return (char *)s;
+    if (!*s++) return 0;
+  return (char*)s;
 
 }
 
-char *__libqasan_strrchr(const char *s, int c) {
+char* __libqasan_strrchr(const char* s, int c) {
 
   char* r = NULL;
   do
-    if (*s == (char)c)
-      r = (char*)s;
+    if (*s == (char)c) r = (char*)s;
   while (*s++);
-  
+
   return r;
 
 }
 
-size_t __libqasan_wcslen(const wchar_t *s) {
+size_t __libqasan_wcslen(const wchar_t* s) {
 
   size_t len = 0;
 
   while (s[len] != L'\0') {
-    if (s[++len] == L'\0')
-      return len;
-    if (s[++len] == L'\0')
-      return len;
-    if (s[++len] == L'\0')
-      return len;
+
+    if (s[++len] == L'\0') return len;
+    if (s[++len] == L'\0') return len;
+    if (s[++len] == L'\0') return len;
     ++len;
+
   }
 
   return len;
 
 }
 
-wchar_t *__libqasan_wcscpy(wchar_t *d, const wchar_t *s) {
+wchar_t* __libqasan_wcscpy(wchar_t* d, const wchar_t* s) {
 
-	wchar_t *a = d;
-	while ((*d++ = *s++));
-	return a;
+  wchar_t* a = d;
+  while ((*d++ = *s++))
+    ;
+  return a;
 
 }
 
-int __libqasan_wcscmp(const wchar_t *s1, const wchar_t *s2) {
+int __libqasan_wcscmp(const wchar_t* s1, const wchar_t* s2) {
 
   wchar_t c1, c2;
   do {
+
     c1 = *s1++;
     c2 = *s2++;
-    if (c2 == L'\0')
-      return c1 - c2;
+    if (c2 == L'\0') return c1 - c2;
+
   } while (c1 == c2);
+
   return c1 < c2 ? -1 : 1;
 
 }
+

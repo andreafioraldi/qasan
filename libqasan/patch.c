@@ -34,11 +34,11 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
   addr[0] = 0x48;
   addr[1] = 0xb8;
   *(uint8_t**)&addr[2] = dest;
-  
+
   // jmp rax
   addr[10] = 0xff;
   addr[11] = 0xe0;
-  
+
   return &addr[12];
 
 }
@@ -50,11 +50,11 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
   // mov eax, dest
   addr[0] = 0xb8;
   *(uint8_t**)&addr[1] = dest;
-  
+
   // jmp eax
   addr[5] = 0xff;
   addr[6] = 0xe0;
-  
+
   return &addr[7];
 
 }
@@ -71,16 +71,16 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
   addr[1] = 0xc0;
   addr[2] = 0x9f;
   addr[3] = 0xe5;
-  
+
   // add pc, pc, r12
   addr[4] = 0xc;
   addr[5] = 0xf0;
   addr[6] = 0x8f;
   addr[7] = 0xe0;
-  
+
   // OFF: .word dest
   *(uint32_t*)&addr[8] = (uint32_t)dest;
-  
+
   return &addr[12];
 
 }
@@ -97,16 +97,16 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
   addr[1] = 0x0;
   addr[2] = 0x0;
   addr[3] = 0x58;
-  
+
   // br x16
   addr[4] = 0x0;
   addr[5] = 0x2;
   addr[6] = 0x1f;
   addr[7] = 0xd6;
-  
+
   // OFF: .dword dest
   *(uint64_t*)&addr[8] = (uint64_t)dest;
-  
+
   return &addr[16];
 
 }
@@ -119,62 +119,65 @@ uint8_t* __libqasan_patch_jump(uint8_t* addr, uint8_t* dest) {
 
 #ifdef CANNOT_HOTPATCH
 
-void __libqasan_hotpatch(void) {}
+void __libqasan_hotpatch(void) {
+
+}
 
 #else
 
-static void* libc_start, *libc_end;
-int libc_perms;
+static void *libc_start, *libc_end;
+int          libc_perms;
 
 static void find_libc(void) {
 
-  FILE *fp;
-  char *line = NULL;
-  size_t len = 0;
+  FILE*   fp;
+  char*   line = NULL;
+  size_t  len = 0;
   ssize_t read;
 
   fp = fopen("/proc/self/maps", "r");
-  if (fp == NULL)
-      return;
-  
-  while ((read = getline(&line, &len, fp)) != -1) {
-  
-    int fields, dev_maj, dev_min, inode;
-    uint64_t min, max, offset;
-    char flag_r, flag_w, flag_x, flag_p;
-    char path[512] = "";
-    fields = sscanf(line, "%"PRIx64"-%"PRIx64" %c%c%c%c %"PRIx64" %x:%x %d"
-                    " %512s", &min, &max, &flag_r, &flag_w, &flag_x,
-                    &flag_p, &offset, &dev_maj, &dev_min, &inode, path);
+  if (fp == NULL) return;
 
-    if ((fields < 10) || (fields > 11))
-        continue;
-    
+  while ((read = getline(&line, &len, fp)) != -1) {
+
+    int      fields, dev_maj, dev_min, inode;
+    uint64_t min, max, offset;
+    char     flag_r, flag_w, flag_x, flag_p;
+    char     path[512] = "";
+    fields = sscanf(line,
+                    "%" PRIx64 "-%" PRIx64 " %c%c%c%c %" PRIx64
+                    " %x:%x %d"
+                    " %512s",
+                    &min, &max, &flag_r, &flag_w, &flag_x, &flag_p, &offset,
+                    &dev_maj, &dev_min, &inode, path);
+
+    if ((fields < 10) || (fields > 11)) continue;
+
     if (flag_x == 'x' && (__libqasan_strstr(path, "/libc.so") ||
-        __libqasan_strstr(path, "/libc-"))) {
-    
+                          __libqasan_strstr(path, "/libc-"))) {
+
       libc_start = (void*)min;
       libc_end = (void*)max;
-      
+
       libc_perms = PROT_EXEC;
       if (flag_w == 'w') libc_perms |= PROT_WRITE;
       if (flag_r == 'r') libc_perms |= PROT_READ;
-      
+
       break;
 
     }
 
   }
-  
+
   free(line);
   fclose(fp);
-  
+
 }
 
 /* Why this shit? https://twitter.com/andreafioraldi/status/1227635146452541441
    Unfortunatly, symbol override with LD_PRELOAD is not enough to prevent libc
    code to call this optimized XMM-based routines.
-   We patch them at runtime to call our unoptimized version of the same routine. 
+   We patch them at runtime to call our unoptimized version of the same routine.
 */
 
 void __libqasan_hotpatch(void) {
@@ -188,28 +191,28 @@ void __libqasan_hotpatch(void) {
     return;
 
   void* libc = dlopen("libc.so.6", RTLD_LAZY);
-  
-#define HOTPATCH(fn) \
-  uint8_t* p_## fn = (uint8_t*)dlsym(libc, # fn); \
-  if (p_## fn) __libqasan_patch_jump(p_## fn, (uint8_t*)&(fn)); \
-  
+
+#define HOTPATCH(fn)                            \
+  uint8_t* p_##fn = (uint8_t*)dlsym(libc, #fn); \
+  if (p_##fn) __libqasan_patch_jump(p_##fn, (uint8_t*)&(fn));
+
   HOTPATCH(memcmp)
   HOTPATCH(memmove)
-  
+
   uint8_t* p_memcpy = (uint8_t*)dlsym(libc, "memcpy");
   // fuck you libc
   if (p_memcpy && p_memmove != p_memcpy)
     __libqasan_patch_jump(p_memcpy, (uint8_t*)&memcpy);
-  
+
   HOTPATCH(mempcpy)
-  
+
   HOTPATCH(memchr)
   HOTPATCH(memrchr)
   HOTPATCH(memmem)
   HOTPATCH(bzero)
   HOTPATCH(explicit_bzero)
   HOTPATCH(bcmp)
-  
+
   HOTPATCH(strchr)
   HOTPATCH(strrchr)
   HOTPATCH(strcasecmp)
@@ -228,7 +231,7 @@ void __libqasan_hotpatch(void) {
   HOTPATCH(wcslen)
   HOTPATCH(wcscpy)
   HOTPATCH(wcscmp)
-  
+
 #undef HOTPATCH
 
   mprotect(libc_start, libc_end - libc_start, libc_perms);
@@ -236,3 +239,4 @@ void __libqasan_hotpatch(void) {
 }
 
 #endif
+
