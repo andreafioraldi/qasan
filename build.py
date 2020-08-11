@@ -68,8 +68,8 @@ opt.add_argument("--arch", help="Set target architecture (default x86_64)", acti
 opt.add_argument('--asan-dso', help="Path to ASan DSO", action='store')
 opt.add_argument("--clean", help="Clean builded files", action='store_true')
 opt.add_argument("--system", help="(eperimental) Build qemu-system", action='store_true')
-opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', default="clang-8")
-opt.add_argument("--cxx", help="C++ compiler (default clang++-8)", action='store', default="clang++-8")
+opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', default="clang")
+opt.add_argument("--cxx", help="C++ compiler (default clang++-8)", action='store', default="clang++")
 opt.add_argument("--cross", help="Cross C compiler for libqasan", action='store')
 
 args = opt.parse_args()
