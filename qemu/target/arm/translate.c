@@ -9124,6 +9124,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             gen_rfe(s, tmp, tmp2);
             return;
         } else if ((insn & 0x0e000000) == 0x0a000000) {
+            if (qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
             /* branch link and change to thumb (blx <offset>) */
             int32_t offset;
 
@@ -9285,6 +9287,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
                 /* branch/exchange thumb (bx).  */
                 ARCH(4T);
                 tmp = load_reg(s, rm);
+                if (rm == 14 && qasan_max_call_stack)
+                  gen_helper_qasan_shadow_stack_pop(tmp);
                 gen_bx(s, tmp);
             } else if (op1 == 3) {
                 /* clz */
@@ -9302,6 +9306,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
                 ARCH(5J); /* bxj */
                 /* Trivial implementation equivalent to bx.  */
                 tmp = load_reg(s, rm);
+                if (rm == 14 && qasan_max_call_stack)
+                  gen_helper_qasan_shadow_stack_pop(tmp);
                 gen_bx(s, tmp);
             } else {
                 goto illegal_op;
@@ -9313,6 +9319,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
 
             ARCH(5);
             /* branch link/exchange thumb (blx) */
+            if (qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
             tmp = load_reg(s, rm);
             tmp2 = tcg_temp_new_i32();
             tcg_gen_movi_i32(tmp2, s->pc);
@@ -9523,6 +9531,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             if (logic_cc) {
                 gen_logic_CC(tmp);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x01:
@@ -9530,6 +9540,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             if (logic_cc) {
                 gen_logic_CC(tmp);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x02:
@@ -9547,6 +9559,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
                 } else {
                     tcg_gen_sub_i32(tmp, tmp, tmp2);
                 }
+                if (rd == 15 && rn == 14 && qasan_max_call_stack)
+                  gen_helper_qasan_shadow_stack_pop(tmp);
                 store_reg_bx(s, rd, tmp);
             }
             break;
@@ -9557,6 +9571,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             } else {
                 tcg_gen_sub_i32(tmp, tmp2, tmp);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x04:
@@ -9565,6 +9581,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             } else {
                 tcg_gen_add_i32(tmp, tmp, tmp2);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x05:
@@ -9573,6 +9591,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             } else {
                 gen_add_carry(tmp, tmp, tmp2);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x06:
@@ -9581,6 +9601,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             } else {
                 gen_sub_carry(tmp, tmp, tmp2);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x07:
@@ -9589,6 +9611,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             } else {
                 gen_sub_carry(tmp, tmp2, tmp);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x08:
@@ -9623,6 +9647,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             if (logic_cc) {
                 gen_logic_CC(tmp);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         case 0x0d:
@@ -9644,6 +9670,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             if (logic_cc) {
                 gen_logic_CC(tmp);
             }
+            if (rd == 15 && rn == 14 && qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_pop(tmp);
             store_reg_bx(s, rd, tmp);
             break;
         default:
@@ -10332,6 +10360,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
             }
             if (insn & (1 << 20)) {
                 /* Complete the load.  */
+                //if (rd == 15 && rn == 13 && qasan_max_call_stack)
+                //  gen_helper_qasan_shadow_stack_pop(tmp);
                 store_reg_from_load(s, rd, tmp);
             }
             break;
@@ -10403,6 +10433,8 @@ static void disas_arm_insn(DisasContext *s, unsigned int insn)
                             } else if (rn == 15 && exc_return) {
                                 store_pc_exc_ret(s, tmp);
                             } else {
+                                if (i == 15 && qasan_max_call_stack)
+                                  gen_helper_qasan_shadow_stack_pop(tmp);
                                 store_reg_from_load(s, i, tmp);
                             }
                         } else {
@@ -11552,6 +11584,8 @@ static void disas_thumb2_insn(DisasContext *s, uint32_t insn)
                 offset ^= ((~insn) & (1 << 11)) << 11;
 
                 if (insn & (1 << 14)) {
+                    if (qasan_max_call_stack)
+                      gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
                     /* Branch and link.  */
                     tcg_gen_movi_i32(cpu_R[14], s->pc | 1);
                 }
@@ -11690,6 +11724,8 @@ static void disas_thumb2_insn(DisasContext *s, uint32_t insn)
                             goto illegal_op;
                         }
                         tmp = load_reg(s, rn);
+                        if (rm == 14 && qasan_max_call_stack)
+                          gen_helper_qasan_shadow_stack_pop(tmp);
                         gen_bx(s, tmp);
                         break;
                     case 5: /* Exception return.  */
@@ -12330,6 +12366,8 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
                     /* MOV SP, reg */
                     store_sp_checked(s, tmp);
                 } else {
+                    if (rd == 15 && rm == 14 && qasan_max_call_stack)
+                      gen_helper_qasan_shadow_stack_pop(tmp);
                     store_reg(s, rd, tmp);
                 }
                 break;
@@ -12366,6 +12404,8 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
                 /* BLX/BX */
                 tmp = load_reg(s, rm);
                 if (link) {
+                    if (qasan_max_call_stack)
+                      gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
                     val = (uint32_t)s->pc | 1;
                     tmp2 = tcg_temp_new_i32();
                     tcg_gen_movi_i32(tmp2, val);
@@ -12373,6 +12413,8 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
                     gen_bx(s, tmp);
                 } else {
                     /* Only BX works as exception-return, not BLX */
+                    if (rm == 14 && qasan_max_call_stack)
+                      gen_helper_qasan_shadow_stack_pop(tmp);
                     gen_bx_excret(s, tmp);
                 }
                 break;
@@ -12780,6 +12822,8 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
             store_reg(s, 13, addr);
             /* set the new PC value */
             if ((insn & 0x0900) == 0x0900) {
+                if (qasan_max_call_stack)
+                  gen_helper_qasan_shadow_stack_pop(tmp);
                 store_reg_from_load(s, 15, tmp);
             }
             break;
@@ -12972,6 +13016,9 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
             tcg_gen_addi_i32(tmp, tmp, offset);
             tcg_gen_andi_i32(tmp, tmp, 0xfffffffc);
 
+            if (qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
+
             tmp2 = tcg_temp_new_i32();
             tcg_gen_movi_i32(tmp2, s->pc | 1);
             store_reg(s, 14, tmp2);
@@ -12993,6 +13040,8 @@ static void disas_thumb_insn(DisasContext *s, uint32_t insn)
 
         if (insn & (1 << 11)) {
             /* 0b1111_1xxx_xxxx_xxxx : BL suffix */
+            if (qasan_max_call_stack)
+              gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
             offset = ((insn & 0x7ff) << 1) | 1;
             tmp = load_reg(s, 14);
             tcg_gen_addi_i32(tmp, tmp, offset);

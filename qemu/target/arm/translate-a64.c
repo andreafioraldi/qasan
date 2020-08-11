@@ -39,6 +39,8 @@
 #include "translate-a64.h"
 #include "qemu/atomic128.h"
 
+#include "../afl/afl-qemu-cpu-translate-inl.h"
+
 static TCGv_i64 cpu_X[32];
 static TCGv_i64 cpu_pc;
 
@@ -1363,6 +1365,8 @@ static void disas_uncond_b_imm(DisasContext *s, uint32_t insn)
 
     if (insn & (1U << 31)) {
         /* BL Branch with link */
+        if (qasan_max_call_stack)
+          gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
         tcg_gen_movi_i64(cpu_reg(s, 30), s->pc);
     }
 
@@ -1928,6 +1932,10 @@ static void disas_uncond_b_reg(DisasContext *s, uint32_t insn)
     case 0: /* BR */
     case 1: /* BLR */
     case 2: /* RET */
+        if (opc == 2 && rn == 30 && qasan_max_call_stack)
+          gen_helper_qasan_shadow_stack_pop(cpu_reg(s, 30));
+        else if (opc == 1 && qasan_max_call_stack)
+          gen_helper_qasan_shadow_stack_push(tcg_const_ptr(s->pc));
         gen_a64_set_pc(s, cpu_reg(s, rn));
         /* BLR also needs to load return address */
         if (opc == 1) {

@@ -227,7 +227,7 @@ void asan_giovese_populate_context(struct call_context* ctx, target_ulong pc) {
 
   ctx->addresses[0] = pc;
   
-  if (qasan_shadow_stack.size == 0) return;
+  if (qasan_shadow_stack.size <= 0) return; //can be negative when pop does not find nothing
   
   int i, j = 1;
   for (i = qasan_shadow_stack.first->index -1; i >= 0 && j < qasan_max_call_stack; --i)
@@ -277,7 +277,8 @@ static void addr2line_cmd(char* lib, uintptr_t off, char** function, char** line
   
   *line = malloc(PATH_MAX + 32);
   
-  if (!fgets(*line, PATH_MAX + 32, fp) || !strncmp(*line, "??:", 3)) {
+  if (!fgets(*line, PATH_MAX + 32, fp) || !strncmp(*line, "??:", 3) ||
+      !strncmp(*line, ":?", 2)) {
 
     free(*line);
     *line = NULL;
@@ -411,6 +412,10 @@ char* asan_giovese_printaddr(TARGET_ULONG guest_addr) {
 
 void HELPER(qasan_shadow_stack_push)(target_ulong ptr) {
 
+#if defined(TARGET_ARM)
+  ptr &= ~1;
+#endif
+
   if (unlikely(!qasan_shadow_stack.first)) {
     
     qasan_shadow_stack.first = malloc(sizeof(struct shadow_stack_block));
@@ -434,6 +439,10 @@ void HELPER(qasan_shadow_stack_push)(target_ulong ptr) {
 }
 
 void HELPER(qasan_shadow_stack_pop)(target_ulong ptr) {
+
+#if defined(TARGET_ARM)
+  ptr &= ~1;
+#endif
 
   struct shadow_stack_block* cur_bk = qasan_shadow_stack.first;
   if (unlikely(cur_bk == NULL)) return;

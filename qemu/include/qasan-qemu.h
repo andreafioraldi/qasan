@@ -46,7 +46,7 @@ extern __thread struct shadow_stack qasan_shadow_stack;
 
 #elif defined(TARGET_ARM) && !defined(TARGET_AARCH64)
 
-#define PC_GET(env) ((env)->pc)
+#define PC_GET(env) ((env)->regs[15])
 #define BP_GET(env) ((env)->regs[11])
 #define SP_GET(env) ((env)->regs[13])
 

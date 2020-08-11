@@ -218,9 +218,9 @@ if not args.system:
       os.path.join(dir_path, "qasan-qemu")
     )
 
-    libqasan_cflags = ""
+    libqasan_cflags = "-Wno-int-to-void-pointer-cast -ggdb"
     if arch == "i386":
-        libqasan_cflags = "-m32"
+        libqasan_cflags += " -m32"
 
     assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s'"""
       % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags)) == 0 )

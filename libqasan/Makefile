@@ -1,4 +1,4 @@
-CC := clang-8
+CC := clang
 CFLAGS += -Wno-int-to-void-pointer-cast -ggdb
 LDFLAGS += -ldl -pthread
 
