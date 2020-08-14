@@ -61,9 +61,11 @@ To simply run a binary under QASan:
 
 `./qasan ./program args...`
 
-To get a verbose debug output of the hooked actions:
+To set the LD path (useful when running cross arch, in this case armhf):
 
-`./qasan --verbose ./program args...`
+`./qasan --prefix /usr/arm-linux-gnueabihf/ ./program args...`
+
+Other options are `--preload` to preload a shared object, `--verbose` to get a verbose output with memory mappings and `--debug` to log hooked actions if libqasan is compiled in debug mode.
 
 By default, only the main executable memory accesses are instrumented. To enable the instrumentation of all the libraries, use `AFL_INST_LIBS=1`.
 
