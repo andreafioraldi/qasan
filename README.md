@@ -148,7 +148,7 @@ Paper: https://andreafioraldi.github.io/assets/qasan-secdev20.pdf
 
 Bibtex:
 
-```
+```bibtex
 @INPROCEEDINGS{QASan-SecDev20,
   author={Fioraldi, Andrea and D’Elia, Daniele Cono and Querzoni, Leonardo},
   booktitle={2020 IEEE Secure Development Conference (SecDev)}, 
