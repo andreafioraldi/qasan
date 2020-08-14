@@ -4,6 +4,8 @@
 
 QASan is a custom QEMU 3.1.1 that detects memory errors in the guest using AddressSanitizer.
 
+As QEMU is a binary code emulator, QASan is a binary-only sanitizer and does not require compiler-based instrumentation.
+
 Dowload it with:
 
 ```
