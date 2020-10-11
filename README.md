@@ -161,3 +161,6 @@ Bibtex:
 }
 ```
 
+Video: https://www.youtube.com/watch?v=UtFXU7Nkd8g
+
+Slides: https://andreafioraldi.github.io/assets/qasan-secdev20-slides.pdf
