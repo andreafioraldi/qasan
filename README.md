@@ -2,6 +2,8 @@
 
 > Written and maintaned by Andrea Fioraldi <andreafioraldi@gmail.com>
 
+**For just usermode fuzzing, a more updated version of QASan is now [embedded into AFL++](https://github.com/AFLplusplus/AFLplusplus/tree/dev/qemu_mode/libqasan), use it instead**
+
 QASan is a custom QEMU 3.1.1 that detects memory errors in the guest using AddressSanitizer.
 
 As QEMU is a binary code emulator, QASan is a binary-only sanitizer and does not require compiler-based instrumentation.
