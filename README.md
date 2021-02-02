@@ -148,9 +148,12 @@ sys	0m0,076s
 
 ## Cite
 
-If you use QASan for your academic work, you should cite the following pubblication.
+If you use QASan for your academic work, you should cite the following pubblication:
 
-Paper: https://andreafioraldi.github.io/assets/qasan-secdev20.pdf
++ Andrea Fioraldi, Daniele Cono D’Elia, and Leonardo Querzoni. “Fuzzing binaries for memory safety errors with QASan”. In 2020 IEEE Secure Development Conference (SecDev), 2020.
+
+
+Preprint: https://andreafioraldi.github.io/assets/qasan-secdev20.pdf
 
 Bibtex:
 
