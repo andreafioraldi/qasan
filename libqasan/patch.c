@@ -204,15 +204,16 @@ void __libqasan_hotpatch(void) {
   if (p_memcpy && p_memmove != p_memcpy)
     __libqasan_patch_jump(p_memcpy, (uint8_t*)&memcpy);
 
-  HOTPATCH(mempcpy)
-
   HOTPATCH(memchr)
   HOTPATCH(memrchr)
   HOTPATCH(memmem)
+#ifndef __BIONIC__
   HOTPATCH(bzero)
   HOTPATCH(explicit_bzero)
+  HOTPATCH(mempcpy)
   HOTPATCH(bcmp)
-
+#endif
+  
   HOTPATCH(strchr)
   HOTPATCH(strrchr)
   HOTPATCH(strcasecmp)

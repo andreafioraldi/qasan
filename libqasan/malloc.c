@@ -65,46 +65,54 @@ struct chunk_struct {
 
 };
 
-static void* (*__lq_libc_malloc)(size_t);
-static void (*__lq_libc_free)(void*);
+// From dlmalloc.c
+void* dlmalloc(size_t);
+void  dlfree(void*);
 
 int __libqasan_malloc_initialized;
 
-#define TMP_ZONE_SIZE 4096
-static int           __tmp_alloc_zone_idx;
-static unsigned char __tmp_alloc_zone[TMP_ZONE_SIZE];
+static struct chunk_begin* quarantine_top;
+static struct chunk_begin* quarantine_end;
+static size_t              quarantine_bytes;
 
-static struct chunk_begin* quanrantine_top;
-static struct chunk_begin* quanrantine_end;
-static size_t              quanrantine_bytes;
-static pthread_spinlock_t  quanrantine_lock;
+#ifdef __BIONIC__
+static pthread_mutex_t  quarantine_lock;
+#define LOCK_TRY pthread_mutex_trylock
+#define LOCK_INIT pthread_mutex_init
+#define LOCK_UNLOCK pthread_mutex_unlock
+#else
+static pthread_spinlock_t  quarantine_lock;
+#define LOCK_TRY pthread_spin_trylock
+#define LOCK_INIT pthread_spin_init
+#define LOCK_UNLOCK pthread_spin_unlock
+#endif
 
 // need qasan disabled
 static int quanratine_push(struct chunk_begin* ck) {
 
   if (ck->requested_size >= QUARANTINE_MAX_BYTES) return 0;
 
-  if (pthread_spin_trylock(&quanrantine_lock)) return 0;
+  if (LOCK_TRY(&quarantine_lock)) return 0;
 
-  while (ck->requested_size + quanrantine_bytes >= QUARANTINE_MAX_BYTES) {
+  while (ck->requested_size + quarantine_bytes >= QUARANTINE_MAX_BYTES) {
 
-    struct chunk_begin* tmp = quanrantine_end;
-    quanrantine_end = tmp->prev;
+    struct chunk_begin* tmp = quarantine_end;
+    quarantine_end = tmp->prev;
 
-    quanrantine_bytes -= tmp->requested_size;
+    quarantine_bytes -= tmp->requested_size;
 
     if (tmp->aligned_orig)
-      __lq_libc_free(tmp->aligned_orig);
+      dlfree(tmp->aligned_orig);
     else
-      __lq_libc_free(tmp);
+      dlfree(tmp);
 
   }
 
-  ck->next = quanrantine_top;
-  if (quanrantine_top) quanrantine_top->prev = ck;
-  quanrantine_top = ck;
+  ck->next = quarantine_top;
+  if (quarantine_top) quarantine_top->prev = ck;
+  quarantine_top = ck;
 
-  pthread_spin_unlock(&quanrantine_lock);
+  LOCK_UNLOCK(&quarantine_lock);
 
   return 1;
 
@@ -114,12 +122,7 @@ void __libqasan_init_malloc(void) {
 
   if (__libqasan_malloc_initialized) return;
 
-  __lq_libc_malloc = dlsym(RTLD_NEXT, "malloc");
-  __lq_libc_free = dlsym(RTLD_NEXT, "free");
-
-  assert(__lq_libc_malloc && __lq_libc_free);
-
-  pthread_spin_init(&quanrantine_lock, PTHREAD_PROCESS_PRIVATE);
+  LOCK_INIT(&quarantine_lock, PTHREAD_PROCESS_PRIVATE);
 
   __libqasan_malloc_initialized = 1;
   QASAN_LOG("\n");
@@ -140,24 +143,17 @@ size_t __libqasan_malloc_usable_size(void* ptr) {
 void* __libqasan_malloc(size_t size) {
 
   if (!__libqasan_malloc_initialized) {
-
+  
     __libqasan_init_malloc();
-
-    void* r = &__tmp_alloc_zone[__tmp_alloc_zone_idx];
-
-    if (size & (ALLOC_ALIGN_SIZE - 1))
-      __tmp_alloc_zone_idx +=
-          (size & ~(ALLOC_ALIGN_SIZE - 1)) + ALLOC_ALIGN_SIZE;
-    else
-      __tmp_alloc_zone_idx += size;
-
-    return r;
 
   }
 
+  if (!__libqasan_malloc_initialized)
+    __libqasan_init_malloc();
+
   int state = QASAN_SWAP(QASAN_DISABLED);  // disable qasan for this thread
 
-  struct chunk_begin* p = __lq_libc_malloc(sizeof(struct chunk_struct) + size);
+  struct chunk_begin* p = dlmalloc(sizeof(struct chunk_struct) + size);
 
   QASAN_SWAP(state);
 
@@ -186,10 +182,6 @@ void* __libqasan_malloc(size_t size) {
 
 void __libqasan_free(void* ptr) {
 
-  if (ptr >= (void*)__tmp_alloc_zone &&
-      ptr < ((void*)__tmp_alloc_zone + TMP_ZONE_SIZE))
-    return;
-
   if (!ptr) return;
 
   struct chunk_begin* p = ptr;
@@ -203,9 +195,9 @@ void __libqasan_free(void* ptr) {
   if (!quanratine_push(p)) {
 
     if (p->aligned_orig)
-      __lq_libc_free(p->aligned_orig);
+      dlfree(p->aligned_orig);
     else
-      __lq_libc_free(p);
+      dlfree(p);
 
   }
 
@@ -222,14 +214,6 @@ void __libqasan_free(void* ptr) {
 void* __libqasan_calloc(size_t nmemb, size_t size) {
 
   size *= nmemb;
-
-  if (!__libqasan_malloc_initialized) {
-
-    void* r = &__tmp_alloc_zone[__tmp_alloc_zone_idx];
-    __tmp_alloc_zone_idx += size;
-    return r;
-
-  }
 
   char* p = __libqasan_malloc(size);
   if (!p) return NULL;
@@ -273,7 +257,7 @@ int __libqasan_posix_memalign(void** ptr, size_t align, size_t len) {
 
   int state = QASAN_SWAP(QASAN_DISABLED);  // disable qasan for this thread
 
-  char* orig = __lq_libc_malloc(sizeof(struct chunk_struct) + size);
+  char* orig = dlmalloc(sizeof(struct chunk_struct) + size);
 
   QASAN_SWAP(state);
 

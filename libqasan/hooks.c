@@ -42,7 +42,7 @@ void __libqasan_init_hooks(void) {
 
 }
 
-#ifdef __BIONIC__
+#ifdef __ANDROID__
 size_t malloc_usable_size(const void *ptr) {
 
 #else
@@ -174,7 +174,9 @@ char *fgets(char *s, int size, FILE *stream) {
 
   QASAN_DEBUG("%14p: fgets(%p, %d, %p)\n", rtv, s, size, stream);
   QASAN_STORE(s, size);
+#ifndef __ANDROID__
   QASAN_LOAD(stream, sizeof(FILE));
+#endif
   char *r = __lq_libc_fgets(s, size, stream);
   QASAN_DEBUG("\t\t = %p\n", r);
 
@@ -296,13 +298,8 @@ void *memmem(const void *haystack, size_t haystacklen, const void *needle,
 
 }
 
-#ifdef __BIONIC__
-void __bionic_bzero(void *s, size_t n) {
-
-#else
-void   bzero(void *s, size_t n) {
-
-#endif
+#ifndef __BIONIC__
+void bzero(void *s, size_t n) {
 
   void *rtv = __builtin_return_address(0);
 
@@ -311,6 +308,7 @@ void   bzero(void *s, size_t n) {
   __libqasan_memset(s, 0, n);
 
 }
+#endif
 
 void explicit_bzero(void *s, size_t n) {
 

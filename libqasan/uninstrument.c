@@ -2,7 +2,7 @@
 
 This code is DEPRECATED!
 I'm keeping it here cause maybe the unistrumentation of a function is needed
-for some stranhge reason.
+for some strange reason.
 
 */
 
