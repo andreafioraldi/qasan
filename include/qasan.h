@@ -26,7 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __QASAN_H__
 #define __QASAN_H__
 
-#define QASAN_VERSTR "0.1"
+#define QASAN_VERSTR "0.2"
 
 #define QASAN_FAKEINSTR_X86 { 0x0f, 0x3a, 0xf2 }
 

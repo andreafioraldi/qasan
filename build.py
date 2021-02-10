@@ -67,6 +67,7 @@ opt = argparse.ArgumentParser(description=DESCR, epilog=EPILOG, formatter_class=
 opt.add_argument("--arch", help="Set target architecture (default x86_64)", action='store', default="x86_64")
 opt.add_argument('--asan-dso', help="Path to ASan DSO", action='store')
 opt.add_argument("--clean", help="Clean builded files", action='store_true')
+opt.add_argument("--debug", help="Compile debug libqasan", action='store_true')
 opt.add_argument("--system", help="(eperimental) Build qemu-system", action='store_true')
 opt.add_argument("--cc", help="C compiler (default clang-8)", action='store', default="clang")
 opt.add_argument("--cxx", help="C++ compiler (default clang++-8)", action='store', default="clang++")
@@ -222,8 +223,12 @@ if not args.system:
     if arch == "i386":
         libqasan_cflags += " -m32"
 
-    assert ( os.system("""cd '%s' ; make CC='%s' CFLAGS='%s'"""
-      % (os.path.join(dir_path, "libqasan"), cross_cc, libqasan_cflags)) == 0 )
+    libqasan_target = ''
+    if args.debug:
+        libqasan_target = 'debug'
+    assert ( os.system("""cd '%s' ; make %s CC='%s' CFLAGS='%s'"""
+      % (os.path.join(dir_path, "libqasan"), libqasan_target, cross_cc,
+         libqasan_cflags)) == 0 )
 
     shutil.copy2(
       os.path.join(dir_path, "libqasan", "libqasan.so"),

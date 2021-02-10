@@ -2,7 +2,7 @@ CC := clang
 CFLAGS += -Wno-int-to-void-pointer-cast -ggdb
 LDFLAGS += -ldl -pthread
 
-SRC := libqasan.c hooks.c malloc.c string.c uninstrument.c patch.c
+SRC := libqasan.c hooks.c malloc.c string.c uninstrument.c patch.c dlmalloc.c
 HDR := libqasan.h
 
 all: $(HDR) $(SRC)
