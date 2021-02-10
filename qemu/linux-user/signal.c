@@ -577,10 +577,6 @@ static void QEMU_NORETURN dump_core_and_abort(int target_sig)
     trace_user_force_sig(env, target_sig, host_sig);
     gdb_signalled(env, target_sig);
 
-#ifdef ASAN_GIOVESE
-    asan_giovese_deadly_signal(host_sig, PC_GET(env), PC_GET(env), BP_GET(env), SP_GET(env));
-#endif
-
     /* dump core if supported by target binary format */
     if (core_dump_signal(target_sig) && (ts->bprm->core_dump != NULL)) {
         stop_all_tasks();
@@ -877,11 +873,45 @@ static void handle_pending_signal(CPUArchState *cpu_env, int sig,
                    sig != TARGET_SIGURG &&
                    sig != TARGET_SIGWINCH &&
                    sig != TARGET_SIGCONT) {
+            
+#ifdef ASAN_GIOVESE
+            if (sig == TARGET_SIGILL ||
+                sig != TARGET_SIGFPE ||
+                sig != TARGET_SIGSEGV ||
+                sig != TARGET_SIGBUS)
+              asan_giovese_deadly_signal(target_to_host_signal(sig),
+                                         k->info._sifields._sigfault._addr,
+                                         PC_GET(cpu_env), BP_GET(cpu_env),
+                                         SP_GET(cpu_env));
+            else
+              asan_giovese_deadly_signal(target_to_host_signal(sig),
+                                         PC_GET(cpu_env),
+                                         PC_GET(cpu_env), BP_GET(cpu_env),
+                                         SP_GET(cpu_env));
+#endif
+
             dump_core_and_abort(sig);
         }
     } else if (handler == TARGET_SIG_IGN) {
         /* ignore sig */
     } else if (handler == TARGET_SIG_ERR) {
+
+#ifdef ASAN_GIOVESE
+      if (sig == TARGET_SIGILL ||
+          sig != TARGET_SIGFPE ||
+          sig != TARGET_SIGSEGV ||
+          sig != TARGET_SIGBUS)
+        asan_giovese_deadly_signal(target_to_host_signal(sig),
+                                   k->info._sifields._sigfault._addr,
+                                   PC_GET(cpu_env), BP_GET(cpu_env),
+                                   SP_GET(cpu_env));
+      else
+        asan_giovese_deadly_signal(target_to_host_signal(sig),
+                                   PC_GET(cpu_env),
+                                   PC_GET(cpu_env), BP_GET(cpu_env),
+                                   SP_GET(cpu_env));
+#endif
+
         dump_core_and_abort(sig);
     } else {
         /* compute the blocked signals during the handler execution */
