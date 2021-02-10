@@ -447,6 +447,25 @@ void HELPER(qasan_shadow_stack_pop)(target_ulong ptr) {
   struct shadow_stack_block* cur_bk = qasan_shadow_stack.first;
   if (unlikely(cur_bk == NULL)) return;
 
+  if (cur_bk->index == 0) {
+
+    struct shadow_stack_block* ns = cur_bk->next;
+    if (!ns) return;
+    if (ns->buf[ns->index -1] != ptr) return;
+
+    free(cur_bk);
+    qasan_shadow_stack.first = ns;
+    ns->index--;
+
+  } else if (cur_bk->buf[cur_bk->index -1] == ptr) {
+    
+    cur_bk->index--;
+
+  } else return;
+
+  qasan_shadow_stack.size--;
+
+  /*
   do {
       
       cur_bk->index--;
@@ -460,10 +479,11 @@ void HELPER(qasan_shadow_stack_pop)(target_ulong ptr) {
           if (!cur_bk) break;
           cur_bk->index--;
       }
-      
+  
   } while(cur_bk->buf[cur_bk->index] != ptr);
   
   qasan_shadow_stack.first = cur_bk;
+  */
 
 }
 
