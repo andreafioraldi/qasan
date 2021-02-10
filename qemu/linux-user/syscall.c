@@ -7341,7 +7341,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
         {
             time_t host_time;
             if (get_user_sal(host_time, arg1))
-                goto efault;
+                return -TARGET_EFAULT;
    #if defined(__GNU_LIBRARY__)
       #if (__GLIBC__ >=2) && (__GLIBC_MINOR__ > 30)
             struct timespec ts = {};
