@@ -11,6 +11,6 @@ authors:
   -
     family-names: Querzoni
     given-names: Leonardo
-date-released: 2020-09
+url: "https://github.com/andreafioraldi/qasan"
 doi: "10.1109/SecDev45635.2020.00019"
 message: "If you use QASan for your academic work, you should cite the following pubblication."
