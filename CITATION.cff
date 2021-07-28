@@ -1,6 +1,5 @@
 cff-version: "1.1.0"
 title: "Fuzzing Binaries for Memory Safety Errors with QASan"
-abstract: "Fuzz testing techniques are becoming pervasive for their ever-improving ability to generate crashing trial cases for programs. Memory safety violations however can lead to silent corruptions and errors, and a fuzzer may recognize them only in the presence of sanitization machinery. For closed-source software combining sanitization with fuzzing incurs practical obstacles that we try to tackle with an architecture-independent proposal called QASan for detecting heap memory violations. In our tests QASan is competitive with standalone sanitizers and adds a moderate 1.61x average slowdown to the AFL++ fuzzer while enabling it to reveal more heap-related bugs."
 authors: 
   -
     family-names: Fioraldi
