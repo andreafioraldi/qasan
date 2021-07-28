@@ -1,11 +1,11 @@
-cff-version: 1.1.0
-title: Fuzzing Binaries for Memory Safety Errors with QASan
+cff-version: 1.2.0
+title: "Fuzzing Binaries for Memory Safety Errors with QASan"
 authors: 
-  - family-names: Fioraldi
-    given-names: Andrea
-  - family-names: D'Elia
-    given-names: Daniele Cono
-  - family-names: Querzoni
-    given-names: Leonardo
+  - family-names: "Fioraldi"
+    given-names: "Andrea"
+  - family-names: "D'Elia"
+    given-names: "Daniele Cono"
+  - family-names: "Querzoni"
+    given-names: "Leonardo"
 doi: 10.1109/SecDev45635.2020.00019
-message: If you use QASan for your academic work, you should cite the following pubblication.
+message: "If you use QASan for your academic work, you should cite the following pubblication."
